@@ -66,11 +66,10 @@ import org.openpnp.spi.base.AbstractMachine;
 import org.openpnp.spi.base.SimplePropertySheetHolder;
 import org.pmw.tinylog.Logger;
 import org.simpleframework.xml.Element;
+import org.simpleframework.xml.Version;
 import org.simpleframework.xml.core.Commit;
 
 public class ReferenceMachine extends AbstractMachine {
-
-
     @Element(required = false)
     private ReferenceDriver driver = new NullDriver();
 
@@ -79,11 +78,6 @@ public class ReferenceMachine extends AbstractMachine {
 
     @Element(required = false)
     protected PasteDispenseJobProcessor pasteDispenseJobProcessor;
-
-    // TODO: Remove after July 1, 2017.
-    @Deprecated
-    @Element(required = false)
-    protected PasteDispenseJobProcessor glueDispenseJobProcessor;
 
     @Deprecated
     @Element(required = false)
@@ -99,7 +93,6 @@ public class ReferenceMachine extends AbstractMachine {
     @Commit
     protected void commit() {
         super.commit();
-        glueDispenseJobProcessor = null;
     }
     
     public ReferenceDriver getDriver() {
@@ -199,7 +192,6 @@ public class ReferenceMachine extends AbstractMachine {
 
     @Override
     public Action[] getPropertySheetHolderActions() {
-        // TODO Auto-generated method stub
         return null;
     }
 
