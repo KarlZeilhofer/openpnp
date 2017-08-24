@@ -231,15 +231,31 @@ public class GcodeDriver extends AbstractSerialPortDriver implements Runnable {
 
     @Override
     public void setEnabled(boolean enabled) throws Exception {
-        if (enabled && !connected) {
-            connect();
+        if (enabled && !connected) { 
+            connect(); // also does a disconnect before connecting
         }
         if (connected) {
             if (enabled) {
                 sendGcode(getCommand(null, CommandType.ENABLE_COMMAND));
             }
             else {
-                sendGcode(getCommand(null, CommandType.DISABLE_COMMAND));
+            	try {
+            		sendGcode(getCommand(null, CommandType.DISABLE_COMMAND));
+            		disconnect(); 
+            	}
+            	catch (Exception e) {
+            		// call disconnect, even if the device isn't available any more.
+        			// this closes the serial port, which is important, if the serial device
+        			// has disappeared (e.g. USB-serial device disconnected). 
+        			// on the next setEnabled(true) the reconnected USB-device can be opened
+        			// again. This saves restarting OpenPnP and loosing the state of the 
+            		// current job. 
+            		disconnect(); 
+                    for (ReferenceDriver driver : subDrivers) {
+                        driver.setEnabled(enabled);
+                    }
+            		throw e; // forward exception
+            	}
             }
         }
 
