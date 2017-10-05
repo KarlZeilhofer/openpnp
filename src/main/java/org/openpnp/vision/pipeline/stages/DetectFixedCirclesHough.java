@@ -1,33 +1,25 @@
 package org.openpnp.vision.pipeline.stages;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import org.opencv.core.Mat;
 import org.opencv.imgproc.Imgproc;
+import org.openpnp.model.Length;
+import org.openpnp.model.LengthUnit;
+import org.openpnp.spi.Camera;
+import org.openpnp.util.VisionUtils;
 import org.openpnp.vision.pipeline.CvPipeline;
 import org.openpnp.vision.pipeline.CvStage;
 import org.openpnp.vision.pipeline.Property;
 import org.openpnp.vision.pipeline.Stage;
 import org.simpleframework.xml.Attribute;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Finds circles in the working image and stores the results as a List<Circle> on the model. 
  */
-@Stage(description="Finds circles in the working image. Diameter and spacing can be specified.")
-public class DetectCirclesHough extends CvStage {
-    @Attribute
-    @Property(description = "Minimum distance between circles, in pixels.")
-    private int minDistance = 10;
-
-    @Attribute
-    @Property(description = "Minimum diameter of circles, in pixels.")
-    private int minDiameter = 10;
-
-    @Attribute
-    @Property(description = "Maximum diameter of circles, in pixels.")
-    private int maxDiameter = 100;
-
+@Stage(description="Finds circles in the working image. Diameter and spacing are provided by the pipeline.")
+public class DetectFixedCirclesHough extends CvStage {
     /**
      * Inverse ratio of the accumulator resolution to the image resolution. For example, if dp=1 ,
      * the accumulator has the same resolution as the input image. If dp=2 , the accumulator has
@@ -53,31 +45,7 @@ public class DetectCirclesHough extends CvStage {
      */
     @Attribute(required = false)
     @Property(description = "The accumulator threshold for the circle centers at the detection stage. The smaller it is, the more false circles may be detected")
-    private double param2 = 10;
-
-    public int getMinDistance() {
-        return minDistance;
-    }
-
-    public void setMinDistance(int minDistance) {
-        this.minDistance = minDistance;
-    }
-
-    public int getMinDiameter() {
-        return minDiameter;
-    }
-
-    public void setMinDiameter(int minDiameter) {
-        this.minDiameter = minDiameter;
-    }
-
-    public int getMaxDiameter() {
-        return maxDiameter;
-    }
-
-    public void setMaxDiameter(int maxDiameter) {
-        this.maxDiameter = maxDiameter;
-    }
+    private double param2 = 13;
 
     public double getDp() {
         return dp;
@@ -105,10 +73,24 @@ public class DetectCirclesHough extends CvStage {
 
     @Override
     public Result process(CvPipeline pipeline) throws Exception {
+        Camera camera = (Camera) pipeline.getProperty("camera");
+        if (camera == null) {
+            throw new Exception("No Camera set on pipeline.");
+        }
+        Integer minDistance = (Integer) pipeline.getProperty("DetectFixedCirclesHough.minDistance");
+        Integer minDiameter = (Integer) pipeline.getProperty("DetectFixedCirclesHough.minDiameter");
+        Integer maxDiameter = (Integer) pipeline.getProperty("DetectFixedCirclesHough.maxDiameter");
+        if ((minDistance == null) || (minDiameter == null) || (maxDiameter == null)) {
+            throw new Exception("DetectFixedCirclesHough properties are not set on pipeline.");
+        }
+
         Mat mat = pipeline.getWorkingImage();
         Mat output = new Mat();
-        Imgproc.HoughCircles(mat, output, Imgproc.CV_HOUGH_GRADIENT, dp, minDistance, param1,
-                param2, minDiameter / 2, maxDiameter / 2);
+        Imgproc.HoughCircles(mat, output, Imgproc.CV_HOUGH_GRADIENT, dp,
+                minDistance,
+                param1, param2,
+                minDiameter / 2,
+                maxDiameter / 2);
         List<Result.Circle> circles = new ArrayList<>();
         for (int i = 0; i < output.cols(); i++) {
             double[] circle = output.get(0, i);

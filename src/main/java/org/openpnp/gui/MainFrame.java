@@ -209,7 +209,7 @@ public class MainFrame extends JFrame {
                 prefs.getInt(PREF_WINDOW_Y, PREF_WINDOW_Y_DEF),
                 prefs.getInt(PREF_WINDOW_WIDTH, PREF_WINDOW_WIDTH_DEF),
                 prefs.getInt(PREF_WINDOW_HEIGHT, PREF_WINDOW_HEIGHT_DEF));
-        jobPanel = new JobPanel(configuration, this, machineControlsPanel);
+        jobPanel = new JobPanel(configuration, this);
         partsPanel = new PartsPanel(configuration, this);
         packagesPanel = new PackagesPanel(configuration, this);
         feedersPanel = new FeedersPanel(configuration, this);
@@ -287,15 +287,19 @@ public class MainFrame extends JFrame {
         }
         mnUnits.add(menuItem);
 
-        // Job Control
+        // Job
         //////////////////////////////////////////////////////////////////////
-        JMenu mnJob = new JMenu("Job Control");
+        JMenu mnJob = new JMenu("Job");
         mnJob.setMnemonic(KeyEvent.VK_J);
         menuBar.add(mnJob);
 
         mnJob.add(new JMenuItem(jobPanel.startPauseResumeJobAction));
         mnJob.add(new JMenuItem(jobPanel.stepJobAction));
         mnJob.add(new JMenuItem(jobPanel.stopJobAction));
+        
+        mnJob.addSeparator();
+        
+        mnJob.add(new JMenuItem(jobPanel.resetAllPlacedAction));
 
         // Machine
         //////////////////////////////////////////////////////////////////////
@@ -428,7 +432,7 @@ public class MainFrame extends JFrame {
         lblInstructions.setEditable(false);
         panel_1.add(lblInstructions);
 
-        machineControlsPanel = new MachineControlsPanel(configuration);
+        machineControlsPanel = new MachineControlsPanel(configuration, jobPanel);
         panelMachine.add(machineControlsPanel, BorderLayout.SOUTH);
 
         mnCommands.add(new JMenuItem(machineControlsPanel.homeAction));
@@ -464,6 +468,8 @@ public class MainFrame extends JFrame {
                 jobPanel.stopJobAction); // Ctrl-Shift-A for Stop
         hotkeyActionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_P, KeyEvent.CTRL_DOWN_MASK | KeyEvent.SHIFT_DOWN_MASK),
                 machineControlsPanel.getJogControlsPanel().xyParkAction); // Ctrl-Shift-P for xyPark
+        hotkeyActionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_L, KeyEvent.CTRL_DOWN_MASK | KeyEvent.SHIFT_DOWN_MASK),
+                machineControlsPanel.getJogControlsPanel().zParkAction); // Ctrl-Shift-P for zPark
         hotkeyActionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_Z, KeyEvent.CTRL_DOWN_MASK | KeyEvent.SHIFT_DOWN_MASK),
                 machineControlsPanel.getJogControlsPanel().safezAction); // Ctrl-Shift-Z for safezAction
         hotkeyActionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_D, KeyEvent.CTRL_DOWN_MASK | KeyEvent.SHIFT_DOWN_MASK),

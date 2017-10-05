@@ -1,6 +1,206 @@
 This file lists major or notable changes to OpenPnP in chronological order. This is not
 a complete change list, only those that may directly interest or affect users.
 
+# 2017-09-30
+
+* Major Update: New Camera Capture System!
+
+	OpenPnP now has it's very own, custom written camera capture system written specifically to
+	solve all of the problems that have plagued camera capture since the beginning of this project!
+	
+	openpnp-capture is a brand new capture library written by Niels Moseley (@trcwm) specifically
+	for OpenPnP. Using this library we are now finally able to do things like run multiple USB
+	cameras on a single port/hub, manage camera properties such as exposure, focus and white
+	balance and select camera data formats to make intelligent choices based on quality, size, 
+	frame rate, etc.
+	
+	Two of the biggest difficulties with capture in OpenPnP from the start have been the
+	inability to run multiple cameras over a single USB port/hub and the inability to control
+	manual exposure. The first is important because many people use OpenPnP with laptops
+	which may have a limited number of ports. The second is important because most commercial
+	USB cameras default to auto exposure and this causes problems with vision as the camera
+	adjusts the exposure to compensate for differences in the image.
+	
+	Using the new library, you can now set up your lighting and choose the exact exposure that
+	works best for your machine, and you will know that it won't change just because the
+	camera is looking at something else.
+	
+	To use the new feature, add a new camera using the OpenPnpCaptureCamera and see the General
+	Settings tab to select a device, format and property settings.
+	
+	I want to give a HUGE shout out and thank you to Niels for all his incredibly hard work
+	on the new capture library over the past couple months. He wrote a robust and expansive library
+	for video capture for all three major operating systems in a very short period of time,
+	knocking out feature after feature faster than I could integrate them into OpenPnP. This is
+	an invaluable contribution to the project and will really push OpenPnP forward in it's
+	computer vision abilities. Thank you Niels!
+	
+	For more information about the capture library itself, see:
+	https://github.com/openpnp/openpnp-capture
+	
+	For information about the Java and Maven bindings for the capture library, see:
+	https://github.com/openpnp/openpnp-capture-java
+	
+	Finally, be aware that there are some known issues:
+	* When you switch the selected device, the wizard doesn't reload the properties. To work
+	around, simply click to another wizard and then click back. To be fixed soon. 
+	* Brightness, contrast, saturation, gamma properties not yet implemented in OpenPnP. These
+	properties were recently added to the capture library but have not yet been implemented
+	in OpenPnp. 
+	
+	If you run into any other issues, please file a bug report or post to the mailing list. Your
+	feedback will help us make this new feature even better! 
+
+# 2017-09-21
+
+* Ctrl-Shift-L Hotkey Added for Park Z
+
+# 2017-09-16
+
+* Job Save Always Enabled
+
+	The File -> Save Job menu option is now always enabled so that you can save the job
+	and any associated boards at any time. Previously this was only enabled when the
+	board was marked dirty, and it did not reflect the status of the associated boards which
+	made it hard to save boards on demand.
+	
+* Camera FPS in Image Info
+
+	The Image Info pane in the camera view now shows current FPS being received from the
+	camera. This was put in for testing some new features but was useful enough that I
+	decided to leave it in so users can check their camera feeds.
+
+
+# 2017-08-31
+
+* Job Placed Status
+
+	Placements now have a Placed column that indicates if the placement has been placed.
+	This value is saved with the job, so it is now possible to do partial assembly, exit
+	OpenPnP, and then recover the job from where you left off.
+	
+	You can right click the placements table to perform a bulk set or reset of the Placed flag
+	and there is a new Job menu item that will reset the Placed status for the entire job at
+	once. This can be used to quickly prep the job to be run again after it's finished. 
+
+	Associated issues:
+	https://github.com/openpnp/openpnp/issues/205
+	https://github.com/openpnp/openpnp/issues/258
+	
+	Implemented in PR https://github.com/openpnp/openpnp/pull/632
+	
+	Thanks to @sp-apertus for this huge improvement in usability!
+	  
+# 2017-08-29
+
+* ReferenceStripFeeder Improvements
+
+	* Added auto-thresholding to the default CvPipeline for ReferenceStripFeeder to better
+	detect tape holes and eliminate false-positives in noisy camera images. Users should
+	reset their feeder vision pipelines to the default to get this change, then re-apply
+	any pipeline changes if still necessary.
+	* Auto Setup for ReferenceStripFeeder is now a lot smarter, more accurate, and is able
+	to catch common setup issues.
+	* Fixed issue where strips with 2mm part pitch could result in the reference holes being
+	detected flipped depending on where on the two parts the user clicked.
+	* Fixed issue where part pitch was calculated in the units of the camera, not
+	necessarily millimeters.
+	* User is notified if they selected parts in the wrong order for the orientation of the
+	strip.
+	* Tightened the max distance from a component center to the feed hole centers to
+	accurately reflect the spacing as defined in the EIA-481 standard and thus reduce
+	false-positives for adjacent strips.
+	* Multiple, full lines of strip holes are detected and grouped appropriately, and only
+	the correct line of holes are used for the selected parts/strip (some spacing is still
+	required between adjacent strips, but it is much reduced and more reliable).
+	
+	Implemented in PR https://github.com/openpnp/openpnp/pull/628
+	
+	Thanks to @richard-sim for these improvements!
+
+* Head Movement Speed Limiting
+
+	Head movements are now limited to the speed of the slowest part on the head at any
+	time. This means that if you have more than one nozzle, and you have picked more than
+	one part, if one part has a slower speed setting than the other, the slower one will
+	dictate the speed of the head. Movements initiated by Cameras and Actuators on the same
+	head will be limited in the same fashion.
+	
+	Implemented in PR https://github.com/openpnp/openpnp/pull/630
+	
+	Original issue https://github.com/openpnp/openpnp/issues/576
+	
+	Thank you to @johngrabner for this nice improvement!
+	 
+# 2017-08-28
+
+* ReferenceStripFeeder Improvements
+
+	* Added auto-thresholding to the default CvPipeline for ReferenceStripFeeder to better
+	detect tape holes and eliminate false-positives in noisy camera images. Users should
+	reset their feeder vision pipelines to the default to get this change, then re-apply
+	any pipeline changes if still necessary.
+	* Auto Setup for ReferenceStripFeeder is now a lot smarter, more accurate, and is able
+	to catch common setup issues.
+	* Fixed issue where strips with 2mm part pitch could result in the reference holes being
+	detected flipped depending on where on the two parts the user clicked.
+	* Fixed issue where part pitch was calculated in the units of the camera, not
+	necessarily millimeters.
+	* User is notified if they selected parts in the wrong order for the orientation of the
+	strip.
+	* Tightened the max distance from a component center to the feed hole centers to
+	accurately reflect the spacing as defined in the EIA-481 standard and thus reduce
+	false-positives for adjacent strips.
+	* Multiple, full lines of strip holes are detected and grouped appropriately, and only
+	the correct line of holes are used for the selected parts/strip (some spacing is still
+	required between adjacent strips, but it is much reduced and more reliable).
+	
+	Implemented in PR https://github.com/openpnp/openpnp/pull/628
+	
+	Thanks to @richard-sim for these improvements!
+
+# 2017-08-19
+
+* New Scripting Event: Job.Placement.Complete
+
+	New Scripting Event fired when a placement is complete, i.e. a part has been placed.
+	
+	See https://github.com/openpnp/openpnp/wiki/Scripting#jobplacementcomplete for usage.
+	
+# 2017-08-16
+
+* ReferenceStripFeeder Converted to CvPipeline
+
+	The vision operations for ReferenceStripFeeder have been converted from hard coded
+	algorithms to use the CvPipeline system, as bottom vision and fiducial finding do. This
+	makes it possible for you to easily customize the pipeline used for feeder vision to
+	better match the conditions on your system.
+	
+	Implemented in PR https://github.com/openpnp/openpnp/pull/610
+	
+	Many thanks to @richard-sim for taking on this complex and important conversion! 
+
+# 2017-08-15
+
+* Board Jog Crash Protection
+
+	A new tab called Safety has been added, with a checkbox that allows you to enable/disable
+	board crash protection. This feature will throw an error if you try to jog a nozzle into
+	a board.
+	
+	Implemented in PR https://github.com/openpnp/openpnp/pull/598
+	
+	Thank you to @machinekoder for this helpful improvement!
+
+* Kicad Importer Improved Part Creation
+
+	A new checkbox in the Kicad importer allows you to specify that only the value should
+	be used when creating part names.
+	
+	Implemented in PR https://github.com/openpnp/openpnp/pull/620
+	
+	Thank you to @KarlZeilhofer for this new feature!
+
 # 2017-07-30
 
 * Additional Keyboard Shortcut Support
@@ -158,7 +358,8 @@ a complete change list, only those that may directly interest or affect users.
 
 # 2017-05-15
 	
-	New tray feeder added: RotaryTrayFeeder
+* New tray feeder added: RotaryTrayFeeder
+
 	This tray feeder takes 3 points (first component, first row last component, last row last component) 
 	to measure the component grid and is rotation agnostic. Feedback and experience reports are welcome.
 
@@ -227,7 +428,7 @@ a complete change list, only those that may directly interest or affect users.
 
 * BREAKING CHANGE: Outdated Drivers Removed
 
-	Several outdated drivers have been removed. These are: GrblDriver, MarlinDriver, SprinterDriver
+	Several outdated drivers have been removed. These are: GrblDriver, MarlinDriver, SprinterDriver, and
 	TinygDriver. All of these drivers have been replaced with the much better supported
 	GcodeDriver. If you are currently using one of these drivers this version WILL BREAK your
 	configuration. If you need help migrating, please post a question to the mailing list at:

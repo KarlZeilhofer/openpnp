@@ -127,7 +127,6 @@ public class JobPanel extends JPanel {
     private JTable boardLocationsTable;
     private JSplitPane splitPane;
 
-    private ActionGroup jobSaveActionGroup;
     private ActionGroup boardLocationSelectionActionGroup;
 
     private Preferences prefs = Preferences.userNodeForPackage(JobPanel.class);
@@ -147,8 +146,7 @@ public class JobPanel extends JPanel {
 
     private FiniteStateMachine<State, Message> fsm = new FiniteStateMachine<>(State.Stopped);
 
-    public JobPanel(Configuration configuration, MainFrame frame,
-            MachineControlsPanel machineControlsPanel) {
+    public JobPanel(Configuration configuration, MainFrame frame) {
         this.configuration = configuration;
         this.frame = frame;
 
@@ -166,9 +164,6 @@ public class JobPanel extends JPanel {
         fsm.add(State.Stepping, Message.Abort, State.Stopped, this::jobAbort);
         fsm.add(State.Stepping, Message.Finished, State.Stopped);
 
-        jobSaveActionGroup = new ActionGroup(saveJobAction);
-        jobSaveActionGroup.setEnabled(false);
-
         boardLocationSelectionActionGroup =
                 new ActionGroup(removeBoardAction, captureCameraBoardLocationAction,
                         captureToolBoardLocationAction, moveCameraToBoardLocationAction,
@@ -184,7 +179,31 @@ public class JobPanel extends JPanel {
         @SuppressWarnings({"unchecked", "rawtypes"})
         JComboBox sidesComboBox = new JComboBox(Side.values());
 
-        boardLocationsTable = new AutoSelectTextTable(boardLocationsTableModel);
+        boardLocationsTable = new AutoSelectTextTable(boardLocationsTableModel) {
+            @Override
+            public String getToolTipText(MouseEvent e) {
+
+                java.awt.Point p = e.getPoint();
+                int row = rowAtPoint(p);
+                int col = columnAtPoint(p);
+
+                if (row >= 0) {
+                    if (col == 0) {
+                        row = boardLocationsTable.convertRowIndexToModel(row);
+                        BoardLocation boardLocation =
+                                boardLocationsTableModel.getBoardLocation(row);
+                        if (boardLocation != null) {
+                            return boardLocation.getBoard()
+                                                .getFile()
+                                                .toString();
+                        }
+                    }
+                }
+
+                return super.getToolTipText();
+            }
+        };
+
         boardLocationsTable.setAutoCreateRowSorter(true);
         boardLocationsTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         boardLocationsTable.setDefaultEditor(Side.class, new DefaultCellEditor(sidesComboBox));
@@ -1018,6 +1037,22 @@ public class JobPanel extends JPanel {
         }
     };
 
+    public final Action resetAllPlacedAction = new AbstractAction() {
+        {
+            putValue(NAME, "Reset All Placed");
+//            putValue(SMALL_ICON, Icons.add);
+            putValue(SHORT_DESCRIPTION, "Reset the Placed status for every placement in the job.");
+        }
+
+        @Override
+        public void actionPerformed(ActionEvent arg0) {
+            for (BoardLocation boardLocation : job.getBoardLocations()) {
+                boardLocation.clearAllPlaced();
+            }
+            jobPlacementsPanel.refresh();
+        }
+    };
+
     public final Action addBoardAction = new AbstractAction() {
         {
             putValue(NAME, "Add Board...");
@@ -1401,7 +1436,6 @@ public class JobPanel extends JPanel {
                 @Override
                 public void propertyChange(PropertyChangeEvent evt) {
                     updateTitle();
-                    jobSaveActionGroup.setEnabled(getJob().isDirty());
                 }
             };
 
