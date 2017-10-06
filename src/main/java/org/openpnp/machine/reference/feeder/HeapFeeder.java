@@ -29,8 +29,15 @@ import org.opencv.core.RotatedRect;
 import org.openpnp.gui.MainFrame;
 import org.openpnp.gui.support.PropertySheetWizardAdapter;
 import org.openpnp.gui.support.Wizard;
+import org.openpnp.machine.reference.ReferenceActuator;
+import org.openpnp.machine.reference.ReferenceDriver;
 import org.openpnp.machine.reference.ReferenceFeeder;
+import org.openpnp.machine.reference.ReferenceMachine;
+import org.openpnp.machine.reference.ReferenceNozzle;
+import org.openpnp.machine.reference.driver.GcodeDriver.CommandType;
 import org.openpnp.machine.reference.feeder.wizards.HeapFeederConfigurationWizard;
+import org.openpnp.model.Configuration;
+import org.openpnp.model.LengthUnit;
 import org.openpnp.model.Location;
 import org.openpnp.spi.Camera;
 import org.openpnp.spi.Nozzle;
@@ -44,16 +51,63 @@ import org.simpleframework.xml.Element;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+
 /**
  * 
- * @author Karl Zeilhofer <zeilhofer at team14.at>
+ * @author Karl Zeilhofer <zeilhofer |at| team14 dot at>
  * 
- * The HeapFeeder is a very advanced type of feeder, which makes it possible, to pick
- * up parts from a heap of loose parts of the same type. 
- * 
- * This enables the machine to have a 2D-array of different parts, instead of only a linear
- * set of feeder-tapes along the edge of the machine table. 
- *
+
+The HeapFeeder is a very advanced type of feeder, which makes it possible, to pick
+up parts from a heap of loose parts of the same type. 
+
+This enables the machine to have a 2D-array of different parts, instead of only a linear
+set of feeder-tapes along the edge of the machine table. 
+
+Definitions and Conventions: 
+
+## BoxTray
+
+Typically a heap is filled into a small Box, which is part of a BoxTray. 
+Each Box is by definition surrounded by corridors for parts-transportation
+(typically 7mm). The horizontal section of a Box is a square, oriented along the x and y axis. 
+Its inner edges are typically 12mm. The whole BoxTray consists of Nx by Ny Boxes.
+Between the Boxes are corridors, but for saving space, only along the y-direction and
+also the boxes are grouped into a pair of columns. 
+
+
+
+	BoxTray Geometry
+	
+	y-axis
+	^
+	|
+	       A     B         C     D
+	+-----------------------------------+
+	|                                   |
+	|   +-----+-----+   +-----+-----+   |
+	|   |     |     | c |     |     |   | 4    
+	|   |     |     | o |     |     |   |     
+	|   +-----+-----+ r +-----+-----+   |
+	|   |     |     | r |     |     |   | 3    
+	|   |     |     | i |     |     |   |     
+	|   +-----+-----+ d +-----+-----+   |
+	|   |     |     | o |     |     |   | 2    
+	|   |     |     | r |     |     |   |     
+	|   +-----+-----+   +-----+-----+   |
+	|   |     |     |   |     |     |   | 1    
+	|   |     |     |   |     |     |   |     
+	|   +-----+-----+   +-----+-----+   |
+	|            c o r r i d o r        |
+   (0)----------------------------------+  --> x-axis
+	origin
+		
+Our BoxTrays for testing have 2 columns and 8 Rows (A1..B8). 
+
+The nozzle takes the parts only from the center of one Box, since there is 
+only very little clearance for the nozzles collar (12mmx12mm vs. 10.5mm diameter). 
+
+	
+
  */
 
 public class HeapFeeder extends ReferenceFeeder {
@@ -84,8 +138,11 @@ public class HeapFeeder extends ReferenceFeeder {
     /**
      * The ReferenceFeeder.location is where the parts should be picked up from. 
      * 
-     * The area is analyzed by the down-camera before picking up one, or 
-     * accidently multiple parts. 
+     * In the HeapFeeder this is the center of a single Box. The height of this 
+     * location is the top edge of the Box. It is assumed, that a box is at max. 
+     * filled until the top edege, without building a heap that would extend the
+     * Box's height.  
+     * 
      */
     
     
@@ -98,7 +155,7 @@ public class HeapFeeder extends ReferenceFeeder {
      * losing a part during transportation. 
      * 
      * For simplicity, on the way from the up-camera to the separation area, the chip flip area
-     * and the pickLocation there must not be any heap underneath. 
+     * and the pickLocation there must not be any Box underneath. 
      */
     private List<Location> heapToUpcamWayPoints;
 
@@ -150,7 +207,7 @@ public class HeapFeeder extends ReferenceFeeder {
     static private Location chipFlipPickupArea;
     
     /**
-     * The pickLocation is a fixed location for this feeder. 
+     * The pickLocation is a fixed location for this feeder object. 
      * The part is placed there by the feeder when all necessary operations 
      * have been passed before. 
      */
@@ -167,17 +224,148 @@ public class HeapFeeder extends ReferenceFeeder {
     public void feed(Nozzle nozzle) throws Exception {
     	
         Camera camera = nozzle.getHead().getDefaultCamera();
-        // Move to the feeder pick location
-        MovableUtils.moveToLocationAtSafeZ(camera, location);
-        
         
     	// TODO 0: implement complete sequence of operations!
+        
+        /*
+         Procedure:
+         
+         
+         if(still parts on separation area)
+         	Clean up (TODO)
+         
+         
+         Pick new Part:
+         * Turn on the vacuum pump and the valve
+         * Go to location at save Z
+         * measure pressure (with no part on nozzle)
+         * move down until pressure rises significantly
+         * move up to save z. 
+         * follow waypoints to up-camera
+         * do a bottom vision
+			BottomVision:
+			 * goto UpCamera
+	         if(OK)
+	         	* goto picklocation
+	         else if(single part but upside down)
+	         	Flip Chip:
+	         	do
+		         	* goto chipFlipLocation
+		         	* drop the chip
+		         	* top vision
+		         	if (nothing found)
+		         		* throw error
+		         	else
+		         		* pick it up
+		        until success
+		        * goto BottomVision()
+		     else if(multiple parts  on nozzle)
+		     	* goto separationDropLocation
+		     	* drop the parts
+		     	* top vision
+		     	* store number of parts
+		     	* find part with top-side upward
+		     	if( found )
+		     		* pick it up
+		     		* goto BottomVision()
+		     	else if (only upside down parts found)
+		     		* pick one up 
+		     		* goto FlipChip()
+		     	else // nothing usable found
+		     		* throw error
+		     else // no part on nozzle found
+		     	* throw error
+         */
     	
-        for (int i = 0; i < 3; i++) {
-            pickLocation = getPickLocation(camera, nozzle);
-            camera.moveTo(pickLocation);
-        }
+        pickNewPart(camera, nozzle);
     }
+    
+    /**
+     * We assume that the separation area is cleaned up!
+     * @param camera
+     * @param nozzle
+     * @return
+     * @throws Exception
+     */
+    private Location pickNewPart(Camera camera, Nozzle nozzle) throws Exception {
+        // Turn on the vacuum pump and the valve
+    	pumpOn();
+    	valveOn(nozzle);
+       	
+    	MovableUtils.moveToLocationAtSafeZ(nozzle, location); // center of our box
+    	
+        // * measure pressure (with no part on nozzle), until it has stabilized
+    	Thread.sleep(1000);
+    	double p0 = pressure(nozzle); // TODO 4: implement stabilizations algorithm
+    	
+    	// * move down until pressure rises significantly
+    	Location l = location;
+		double p1 = p0;
+		do {
+			l = l.add(new Location(LengthUnit.Millimeters, 0.0,0.0,-0.1, 0.0));
+			nozzle.moveTo(l);
+			Thread.sleep(100); // TODO 3 replace constant
+			p1 = pressure(nozzle);
+    	}while(p1 - p0 < 4.00 && 
+    			l.getLengthZ().convertToUnits(LengthUnit.Millimeters).getValue() > (-43+15)); // TODO 3 replace constant
+    	
+        // * move up to save z. 
+        // * follow waypoints to up-camera
+		
+		if(l.getLengthZ().convertToUnits(LengthUnit.Millimeters).getValue() > (-43+15)) {
+            // Logger.trace("Part Detected"); // TODO 0: hier gehts weiter!
+		}
+		
+		
+       	
+       	return location; // TODO 0: replace this location!
+    }
+    
+    private void pumpOn() throws Exception {
+    	getDriver().actuate(pump() , true); 
+    }
+    
+    private void pumpOff() throws Exception {
+    	getDriver().actuate(pump() , false); 
+    }
+    
+    private void valveOn(Nozzle nozzle) throws Exception {
+    	getDriver().actuate(valve(nozzle) , true); 
+    }
+    
+    private void valveOff(Nozzle nozzle) throws Exception {
+    	getDriver().actuate(valve(nozzle) , false); 
+    }
+    
+    private double pressure(Nozzle nozzle) throws Exception {
+    	String str = getDriver().actuatorRead(pressureSensor(nozzle));
+    	return Double.parseDouble( str );
+    }
+    
+    private ReferenceActuator pump() {
+    	return getActuator("Pumpe");// TODO 3: replace actuator ID by config
+    }
+    
+    private ReferenceActuator valve(Nozzle nozzle) {
+    	return (ReferenceActuator) nozzle.getHead().getActuatorByName("Ventil");// TODO 3: replace actuator ID by config
+    }
+    
+    private ReferenceActuator pressureSensor(Nozzle nozzle) {
+    	return (ReferenceActuator) nozzle.getHead().getActuatorByName("Drucksensor");// TODO 3: replace actuator ID by config
+    }
+    
+    private ReferenceActuator getActuator(String id) {
+    	return (ReferenceActuator) Configuration.get().getMachine().getActuatorByName(id);
+    }
+    
+    private ReferenceDriver getDriver() {
+        return getMachine().getDriver();
+    }
+
+    private ReferenceMachine getMachine() {
+        return (ReferenceMachine) Configuration.get().getMachine();
+    }
+
 
     private Location getPickLocation(Camera camera, Nozzle nozzle) throws Exception {
         // Process the pipeline to extract RotatedRect results
