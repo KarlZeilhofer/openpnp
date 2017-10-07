@@ -37,6 +37,7 @@ import org.openpnp.machine.reference.ReferenceNozzle;
 import org.openpnp.machine.reference.driver.GcodeDriver.CommandType;
 import org.openpnp.machine.reference.feeder.wizards.HeapFeederConfigurationWizard;
 import org.openpnp.model.Configuration;
+import org.openpnp.model.Length;
 import org.openpnp.model.LengthUnit;
 import org.openpnp.model.Location;
 import org.openpnp.spi.Camera;
@@ -47,6 +48,7 @@ import org.openpnp.util.MovableUtils;
 import org.openpnp.util.OpenCvUtils;
 import org.openpnp.util.VisionUtils;
 import org.openpnp.vision.pipeline.CvPipeline;
+import org.simpleframework.xml.Attribute;
 import org.simpleframework.xml.Element;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -112,6 +114,25 @@ only very little clearance for the nozzles collar (12mmx12mm vs. 10.5mm diameter
 
 public class HeapFeeder extends ReferenceFeeder {
     private final static Logger logger = LoggerFactory.getLogger(AdvancedLoosePartFeeder.class);
+    
+    
+    @Attribute
+    private String pumpName = "Pumpe";
+    @Attribute
+    private String valveName = "Ventil";
+    @Attribute
+    private String pressureSensorName = "Drucksensor";
+    @Attribute
+    private double pressureDelta = 5.0;
+    @Attribute
+    private Length maxZTravel = new Length(10, LengthUnit.Millimeters); // length unit
+    @Attribute
+    private Length zStepOnPickup = new Length(0.1, LengthUnit.Millimeters); // length unit
+    @Attribute
+    private int dwellOnZStep = 100;
+
+
+    
 	
     @Element(required = false)
     private CvPipeline pipeline = createDefaultPipeline();
@@ -304,16 +325,18 @@ public class HeapFeeder extends ReferenceFeeder {
 		do {
 			l = l.add(new Location(LengthUnit.Millimeters, 0.0,0.0,-0.1, 0.0));
 			nozzle.moveTo(l);
-			Thread.sleep(100); // TODO 3 replace constant
+			Thread.sleep(dwellOnZStep); 
 			p1 = pressure(nozzle);
     	}while(p1 - p0 < 4.00 && 
-    			l.getLengthZ().convertToUnits(LengthUnit.Millimeters).getValue() > (-43+15)); // TODO 3 replace constant
+    			l.getLengthZ().convertToUnits(LengthUnit.Millimeters).getValue() > (location.getZ()-maxZTravel.getValue())); 
     	
         // * move up to save z. 
         // * follow waypoints to up-camera
 		
 		if(l.getLengthZ().convertToUnits(LengthUnit.Millimeters).getValue() > (-43+15)) {
-            // Logger.trace("Part Detected"); // TODO 0: hier gehts weiter!
+            logger.trace("Part(s) catched!");
+		}else {
+			logger.trace("Could not catch a part from the heap");
 		}
 		
 		
@@ -343,15 +366,15 @@ public class HeapFeeder extends ReferenceFeeder {
     }
     
     private ReferenceActuator pump() {
-    	return getActuator("Pumpe");// TODO 3: replace actuator ID by config
+    	return getActuator(pumpName);
     }
     
     private ReferenceActuator valve(Nozzle nozzle) {
-    	return (ReferenceActuator) nozzle.getHead().getActuatorByName("Ventil");// TODO 3: replace actuator ID by config
+    	return (ReferenceActuator) nozzle.getHead().getActuatorByName(valveName);
     }
     
     private ReferenceActuator pressureSensor(Nozzle nozzle) {
-    	return (ReferenceActuator) nozzle.getHead().getActuatorByName("Drucksensor");// TODO 3: replace actuator ID by config
+    	return (ReferenceActuator) nozzle.getHead().getActuatorByName(pressureSensorName);
     }
     
     private ReferenceActuator getActuator(String id) {
@@ -367,7 +390,63 @@ public class HeapFeeder extends ReferenceFeeder {
     }
 
 
-    private Location getPickLocation(Camera camera, Nozzle nozzle) throws Exception {
+    public String getPumpName() {
+		return pumpName;
+	}
+
+	public void setPumpName(String pumpName) {
+		this.pumpName = pumpName;
+	}
+
+	public String getValveName() {
+		return valveName;
+	}
+
+	public void setValveName(String valveName) {
+		this.valveName = valveName;
+	}
+
+	public String getPressureSensorName() {
+		return pressureSensorName;
+	}
+
+	public void setPressureSensorName(String pressureSensorName) {
+		this.pressureSensorName = pressureSensorName;
+	}
+
+	public double getPressureDelta() {
+		return pressureDelta;
+	}
+
+	public void setPressureDelta(double pressureDelta) {
+		this.pressureDelta = pressureDelta;
+	}
+
+	public Length getMaxZTravel() {
+		return maxZTravel;
+	}
+
+	public void setMaxZTravel(Length maxZTravel) {
+		this.maxZTravel = maxZTravel;
+	}
+
+	public Length getzStepOnPickup() {
+		return zStepOnPickup;
+	}
+
+	public void setzStepOnPickup(Length zStepOnPickup) {
+		this.zStepOnPickup = zStepOnPickup;
+	}
+
+	public int getDwellOnZStep() {
+		return dwellOnZStep;
+	}
+
+	public void setDwellOnZStep(int dwellOnZStep) {
+		this.dwellOnZStep = dwellOnZStep;
+	}
+
+	private Location getPickLocation(Camera camera, Nozzle nozzle) throws Exception {
         // Process the pipeline to extract RotatedRect results
         pipeline.setProperty("camera", camera);
         pipeline.setProperty("nozzle", nozzle);
