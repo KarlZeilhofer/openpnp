@@ -116,19 +116,19 @@ public class HeapFeeder extends ReferenceFeeder {
     private final static Logger logger = LoggerFactory.getLogger(AdvancedLoosePartFeeder.class);
     
     
-    @Attribute
+    @Attribute(required = false)
     private String pumpName = "Pumpe";
-    @Attribute
+    @Attribute(required = false)
     private String valveName = "Ventil";
-    @Attribute
+    @Attribute(required = false)
     private String pressureSensorName = "Drucksensor";
-    @Attribute
+    @Attribute(required = false)
     private double pressureDelta = 5.0;
-    @Attribute
+    @Element(required = false)
     private Length maxZTravel = new Length(10, LengthUnit.Millimeters); // length unit
-    @Attribute
+    @Element(required = false)
     private Length zStepOnPickup = new Length(0.1, LengthUnit.Millimeters); // length unit
-    @Attribute
+    @Attribute(required = false)
     private int dwellOnZStep = 100;
 
 
