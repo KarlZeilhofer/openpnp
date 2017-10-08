@@ -68,6 +68,7 @@ public class HeapFeederConfigurationWizard
 	JTextField tfPressureSensorName;
 	JTextField tfPressureDelta;
 	JTextField tfMaxZTravel;
+	JTextField tfLastCatchZDepth;
 	JTextField tfZStepOnPickup;
 	JTextField tfDwellOnZStep;
 
@@ -94,6 +95,8 @@ public class HeapFeederConfigurationWizard
         						FormSpecs.RELATED_GAP_COLSPEC,
         						FormSpecs.DEFAULT_COLSPEC,},
         				new RowSpec[] {
+        						FormSpecs.RELATED_GAP_ROWSPEC,
+        						FormSpecs.DEFAULT_ROWSPEC,
         						FormSpecs.RELATED_GAP_ROWSPEC,
         						FormSpecs.DEFAULT_ROWSPEC,
         						FormSpecs.RELATED_GAP_ROWSPEC,
@@ -164,23 +167,34 @@ public class HeapFeederConfigurationWizard
         
      
         {
-	        JLabel lbl = new JLabel("Z step on pickup");
+	        JLabel lbl = new JLabel("Last Catch Z-Depth");
 	        devPanel.add(lbl, "2, 12, right, default");
+	
+	        tfLastCatchZDepth = new JTextField();
+	        tfLastCatchZDepth.setText("0.0");
+	        devPanel.add(tfLastCatchZDepth, "4, 12, fill, default");
+	        tfLastCatchZDepth.setColumns(3);
+        }
+        
+     
+        {
+	        JLabel lbl = new JLabel("Z step on pickup");
+	        devPanel.add(lbl, "2, 14, right, default");
 	
 	        tfZStepOnPickup = new JTextField();
 	        tfZStepOnPickup.setText("0.1");
-	        devPanel.add(tfZStepOnPickup, "4, 12, fill, default");
+	        devPanel.add(tfZStepOnPickup, "4, 14, fill, default");
 	        tfZStepOnPickup.setColumns(3);
         }
         
      
         {
 	        JLabel lbl = new JLabel("dwell after Z-step [ms]");
-	        devPanel.add(lbl, "2, 14, right, default");
+	        devPanel.add(lbl, "2, 16, right, default");
 	
 	        tfDwellOnZStep = new JTextField();
 	        tfDwellOnZStep.setText("100");
-	        devPanel.add(tfDwellOnZStep, "4, 14, fill, default");
+	        devPanel.add(tfDwellOnZStep, "4, 16, fill, default");
 	        tfDwellOnZStep.setColumns(3);
         }
         
@@ -255,6 +269,7 @@ public class HeapFeederConfigurationWizard
         addWrappedBinding(feeder, "pressureSensorName", tfPressureSensorName, 	"text");
         addWrappedBinding(feeder, "pressureDelta", 		tfPressureDelta, 		"text", doubleConverter);
         addWrappedBinding(feeder, "maxZTravel", 		tfMaxZTravel, 			"text", lengthConverter);
+        addWrappedBinding(feeder, "lastCatchZDepth", 	tfLastCatchZDepth, 		"text", lengthConverter);
         addWrappedBinding(feeder, "zStepOnPickup", 		tfZStepOnPickup, 		"text", lengthConverter);
         addWrappedBinding(feeder, "dwellOnZStep", 		tfDwellOnZStep, 		"text", integerConverter);
 

@@ -25,6 +25,7 @@ import java.util.List;
 import javax.swing.Action;
 
 import org.apache.commons.io.IOUtils;
+import org.jcodec.common.model.Unit;
 import org.opencv.core.RotatedRect;
 import org.openpnp.gui.MainFrame;
 import org.openpnp.gui.support.PropertySheetWizardAdapter;
@@ -33,8 +34,6 @@ import org.openpnp.machine.reference.ReferenceActuator;
 import org.openpnp.machine.reference.ReferenceDriver;
 import org.openpnp.machine.reference.ReferenceFeeder;
 import org.openpnp.machine.reference.ReferenceMachine;
-import org.openpnp.machine.reference.ReferenceNozzle;
-import org.openpnp.machine.reference.driver.GcodeDriver.CommandType;
 import org.openpnp.machine.reference.feeder.wizards.HeapFeederConfigurationWizard;
 import org.openpnp.model.Configuration;
 import org.openpnp.model.Length;
@@ -43,15 +42,14 @@ import org.openpnp.model.Location;
 import org.openpnp.spi.Camera;
 import org.openpnp.spi.Nozzle;
 import org.openpnp.spi.PropertySheetHolder;
-import org.openpnp.spi.PropertySheetHolder.PropertySheet;
 import org.openpnp.util.MovableUtils;
 import org.openpnp.util.OpenCvUtils;
 import org.openpnp.util.VisionUtils;
 import org.openpnp.vision.pipeline.CvPipeline;
 import org.simpleframework.xml.Attribute;
 import org.simpleframework.xml.Element;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import org.pmw.tinylog.Logger;
 
 
 /**
@@ -113,7 +111,6 @@ only very little clearance for the nozzles collar (12mmx12mm vs. 10.5mm diameter
  */
 
 public class HeapFeeder extends ReferenceFeeder {
-    private final static Logger logger = LoggerFactory.getLogger(AdvancedLoosePartFeeder.class);
     
     
     @Attribute(required = false)
@@ -127,10 +124,12 @@ public class HeapFeeder extends ReferenceFeeder {
     @Element(required = false)
     private Length maxZTravel = new Length(10, LengthUnit.Millimeters); // length unit
     @Element(required = false)
-    private Length zStepOnPickup = new Length(0.1, LengthUnit.Millimeters); // length unit
+    private Length zStepOnPickup = new Length(-0.1, LengthUnit.Millimeters); // length unit
     @Attribute(required = false)
-    private int dwellOnZStep = 100;
+    private int dwellOnZStep = 100; // needed for sensor stabilization
 
+    @Element(required = false)
+    private Length lastCatchZDepth = new Length(0, LengthUnit.Millimeters); // remember the top level of the heap (relative to location.z)
 
     
 	
@@ -308,7 +307,7 @@ public class HeapFeeder extends ReferenceFeeder {
      * @return
      * @throws Exception
      */
-    private Location pickNewPart(Camera camera, Nozzle nozzle) throws Exception {
+    private void pickNewPart(Camera camera, Nozzle nozzle) throws Exception {
         // Turn on the vacuum pump and the valve
     	pumpOn();
     	valveOn(nozzle);
@@ -316,32 +315,101 @@ public class HeapFeeder extends ReferenceFeeder {
     	MovableUtils.moveToLocationAtSafeZ(nozzle, location); // center of our box
     	
         // * measure pressure (with no part on nozzle), until it has stabilized
-    	Thread.sleep(1000);
-    	double p0 = pressure(nozzle); // TODO 4: implement stabilizations algorithm
+    	Thread.sleep(300);
+    	
     	
     	// * move down until pressure rises significantly
-    	Location l = location;
-		double p1 = p0;
-		do {
-			l = l.add(new Location(LengthUnit.Millimeters, 0.0,0.0,-0.1, 0.0));
-			nozzle.moveTo(l);
+    	// retry up to 5 times
+    	double p0,p1;
+    	double dZ = 0;
+    	int stirDir=0; // 0 = (r,r), 1=(-r,r), 2=(-r,-r), 3=(r,-r)
+		
+    	int retries = 5+1;
+    	do {
+        	p0 = pressure(nozzle); // TODO 4: implement stabilizations algorithm
+        	//dZ = -maxZTravel.getValue(); // start some millimeters above lastCatchZDepth
+        	dZ = 1;
+        	
+	    	// Start with motion at last catch height + 1mm (improves speed)
+			double r = 1; // radius of stiring-motion, // TODO 3: parameter
+			Location lStart = location.add(new Location(LengthUnit.Millimeters, r,r,lastCatchZDepth.getValue()+dZ, 0.0));
+			
+	
+			p1 = p0;
+			while(p1 - p0 < pressureDelta && dZ > maxZTravel.getValue() && isZSwitchActivated(nozzle) == false) {
+				Location l = location;
+		    	
+				// TODO 3: handle collision with Box's floor
+				double dX = 0;
+				double dY = 0;
+				
+				if(stirDir>=4)
+					stirDir=0;
+				
+				// stiring states:
+				switch(stirDir) {
+				case 0: dX = r; dY = 0; break;
+				case 1: dX = 0; dY = r; break;
+				case 2: dX = -r; dY = 0; break;
+				case 3: dX = 0; dY = -r; break;
+				}
+				stirDir++;
+				
+				
+				Location dLocation = new Location(LengthUnit.Millimeters, dX, dY, dZ, 0);
+				l = lStart.add(dLocation);
+				
+				nozzle.moveTo(l);
+				Thread.sleep(dwellOnZStep); 
+				p1 = pressure(nozzle);
+				Logger.trace("pressure = {}, delta = {}, dZ = {}", p1, p1-p0, dZ);
+				
+				if(stirDir == 4) {
+					dZ += zStepOnPickup.getValue();
+				}
+	    	}
+	    	
+	        // * move up to save z. 
+			// on low pressure, we go very slow
+			if(p1-p0 < 0.500 && p1 - p0 >= pressureDelta) { // TODO 3: replace constant
+				nozzle.moveTo(location, 0.01);
+			}else {
+				nozzle.moveTo(location);
+			}
 			Thread.sleep(dwellOnZStep); 
 			p1 = pressure(nozzle);
-    	}while(p1 - p0 < 4.00 && 
-    			l.getLengthZ().convertToUnits(LengthUnit.Millimeters).getValue() > (location.getZ()-maxZTravel.getValue())); 
+			
+			retries--;
+            lastCatchZDepth.setValue(lastCatchZDepth.getValue() + dZ);
+    	}while(p1-p0 < pressureDelta && retries > 0);
+    	
     	
         // * move up to save z. 
-        // * follow waypoints to up-camera
-		
-		if(l.getLengthZ().convertToUnits(LengthUnit.Millimeters).getValue() > (-43+15)) {
-            logger.trace("Part(s) catched!");
+		// on low pressure, we go very slow
+		if(p1-p0 < 0.500) { // TODO 3: replace constant
+			nozzle.moveToSafeZ(0.1);
 		}else {
-			logger.trace("Could not catch a part from the heap");
+			nozzle.moveToSafeZ();
+		}
+		Thread.sleep(dwellOnZStep); 
+		p1 = pressure(nozzle);
+    	
+		if(retries > 0 && p1-p0 >= pressureDelta) {
+            Logger.trace("Part(s) catched!");
+            
+            // Testing Code:
+            // throw away the parts 14mm to the left of the feeder position. 
+            nozzle.moveTo(location.add(new Location(LengthUnit.Millimeters, -14, 0, 0, 0)));
+            valveOff(nozzle);
+		}else {
+			Logger.trace("Could not catch a part from the heap");
+			
+			throw new Exception("Feeder " + getName() + ": Could not catch a part from the heap. Pressure limit not reached.");
 		}
 		
+		// * follow waypoints to up-camera
 		
-       	
-       	return location; // TODO 0: replace this location!
+		pickLocation = new Location(LengthUnit.Millimeters, location.getX(), location.getY(), 0, 0); // TODO 4: get save-z from config
     }
     
     private void pumpOn() throws Exception {
@@ -365,6 +433,15 @@ public class HeapFeeder extends ReferenceFeeder {
     	return Double.parseDouble( str );
     }
     
+    private boolean isZSwitchActivated(Nozzle nozzle) throws Exception {
+    	String str = getDriver().actuatorRead(zSwitchInput(nozzle));
+    	if(str.compareTo("0") == 0) {
+    		return false;
+    	}else {
+    		return true;
+    	}
+    }
+    
     private ReferenceActuator pump() {
     	return getActuator(pumpName);
     }
@@ -375,6 +452,10 @@ public class HeapFeeder extends ReferenceFeeder {
     
     private ReferenceActuator pressureSensor(Nozzle nozzle) {
     	return (ReferenceActuator) nozzle.getHead().getActuatorByName(pressureSensorName);
+    }
+    
+    private ReferenceActuator zSwitchInput(Nozzle nozzle) {
+    	return (ReferenceActuator) nozzle.getHead().getActuatorByName("Ueberlastschalter"); // TODO 3: parameter
     }
     
     private ReferenceActuator getActuator(String id) {
@@ -430,6 +511,16 @@ public class HeapFeeder extends ReferenceFeeder {
 		this.maxZTravel = maxZTravel;
 	}
 
+	public Length getLastCatchZDepth() {
+		return lastCatchZDepth;
+	}
+
+	public void setLastCatchZDepth(Length lastCatchZDepth) {
+		Length oldValue = lastCatchZDepth;
+		this.lastCatchZDepth = lastCatchZDepth;
+		firePropertyChange("lastCatchZDepth", oldValue, lastCatchZDepth);
+	}
+
 	public Length getzStepOnPickup() {
 		return zStepOnPickup;
 	}
@@ -446,41 +537,41 @@ public class HeapFeeder extends ReferenceFeeder {
 		this.dwellOnZStep = dwellOnZStep;
 	}
 
-	private Location getPickLocation(Camera camera, Nozzle nozzle) throws Exception {
-        // Process the pipeline to extract RotatedRect results
-        pipeline.setProperty("camera", camera);
-        pipeline.setProperty("nozzle", nozzle);
-        pipeline.setProperty("feeder", this);
-        pipeline.process();
-        // Grab the results
-        List<RotatedRect> results = (List<RotatedRect>) pipeline.getResult("results").model;
-        if (results.isEmpty()) {
-            throw new Exception("Feeder " + getName() + ": No parts found.");
-        }
-        // Find the closest result
-        results.sort((a, b) -> {
-            Double da = VisionUtils.getPixelLocation(camera, a.center.x, a.center.y)
-                    .getLinearDistanceTo(camera.getLocation());
-            Double db = VisionUtils.getPixelLocation(camera, b.center.x, b.center.y)
-                    .getLinearDistanceTo(camera.getLocation());
-            return da.compareTo(db);
-        });
-        RotatedRect result = results.get(0);
-        Location location = VisionUtils.getPixelLocation(camera, result.center.x, result.center.y);
-        // Get the result's Location
-        // Update the location with the result's rotation
-        location = location.derive(null, null, null, -(result.angle + getLocation().getRotation()));
-        // Update the location with the correct Z, which is the configured Location's Z
-        // plus the part height.
-        location =
-                location.derive(null, null,
-                        this.location.convertToUnits(location.getUnits()).getZ()
-                                + part.getHeight().convertToUnits(location.getUnits()).getValue(),
-                        null);
-        MainFrame.get().getCameraViews().getCameraView(camera)
-                .showFilteredImage(OpenCvUtils.toBufferedImage(pipeline.getWorkingImage()), 250);
-        return location;
-    }
+//	private Location getPickLocation(Camera camera, Nozzle nozzle) throws Exception {
+//        // Process the pipeline to extract RotatedRect results
+//        pipeline.setProperty("camera", camera);
+//        pipeline.setProperty("nozzle", nozzle);
+//        pipeline.setProperty("feeder", this);
+//        pipeline.process();
+//        // Grab the results
+//        List<RotatedRect> results = (List<RotatedRect>) pipeline.getResult("results").model;
+//        if (results.isEmpty()) {
+//            throw new Exception("Feeder " + getName() + ": No parts found.");
+//        }
+//        // Find the closest result
+//        results.sort((a, b) -> {
+//            Double da = VisionUtils.getPixelLocation(camera, a.center.x, a.center.y)
+//                    .getLinearDistanceTo(camera.getLocation());
+//            Double db = VisionUtils.getPixelLocation(camera, b.center.x, b.center.y)
+//                    .getLinearDistanceTo(camera.getLocation());
+//            return da.compareTo(db);
+//        });
+//        RotatedRect result = results.get(0);
+//        Location location = VisionUtils.getPixelLocation(camera, result.center.x, result.center.y);
+//        // Get the result's Location
+//        // Update the location with the result's rotation
+//        location = location.derive(null, null, null, -(result.angle + getLocation().getRotation()));
+//        // Update the location with the correct Z, which is the configured Location's Z
+//        // plus the part height.
+//        location =
+//                location.derive(null, null,
+//                        this.location.convertToUnits(location.getUnits()).getZ()
+//                                + part.getHeight().convertToUnits(location.getUnits()).getValue(),
+//                        null);
+//        MainFrame.get().getCameraViews().getCameraView(camera)
+//                .showFilteredImage(OpenCvUtils.toBufferedImage(pipeline.getWorkingImage()), 250);
+//        return location;
+//    }
 
     public CvPipeline getPipeline() {
         return pipeline;
