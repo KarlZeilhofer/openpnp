@@ -331,8 +331,8 @@ public class HeapFeeder extends ReferenceFeeder {
         	dZ = 1;
         	
 	    	// Start with motion at last catch height + 1mm (improves speed)
-			double r = 1; // radius of stiring-motion, // TODO 3: parameter
-			Location lStart = location.add(new Location(LengthUnit.Millimeters, r,r,lastCatchZDepth.getValue()+dZ, 0.0));
+			double r = 0.5; // radius of stiring-motion, // TODO 3: parameter
+			Location lStart = location.add(new Location(LengthUnit.Millimeters, 0,0,lastCatchZDepth.getValue()+dZ, 0.0));
 			
 	
 			p1 = p0;
@@ -399,8 +399,8 @@ public class HeapFeeder extends ReferenceFeeder {
             
             // Testing Code:
             // throw away the parts 14mm to the left of the feeder position. 
-            nozzle.moveTo(location.add(new Location(LengthUnit.Millimeters, -14, 0, 0, 0)));
-            valveOff(nozzle);
+//            nozzle.moveTo(location.add(new Location(LengthUnit.Millimeters, -14, 0, 0, 0)));
+//            valveOff(nozzle);
 		}else {
 			Logger.trace("Could not catch a part from the heap");
 			
