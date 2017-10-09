@@ -678,6 +678,10 @@ public class GcodeDriver extends AbstractSerialPortDriver implements Runnable {
         command = substituteVariable(command, "BooleanValue", on);
         command = substituteVariable(command, "True", on ? on : null);
         command = substituteVariable(command, "False", on ? null : on);
+        if(command != null) {
+        	command = command.replaceAll("HEX_0x18", "\030"); // TODO 4: replace with a proper parser, to evaluate the HEX-number
+        }
+
         sendGcode(command);
 
         for (ReferenceDriver driver : subDrivers) {
