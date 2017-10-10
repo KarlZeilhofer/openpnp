@@ -20,6 +20,7 @@
 
 package org.openpnp.machine.reference.feeder;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -149,8 +150,8 @@ public class HeapFeeder extends ReferenceFeeder {
     @Attribute(required = false)
     private int boxTrayId = 1; // TODO 2: make adjustable
     
-    @ElementList(required = false)
-    private static List<Location> globalBoxTrayLocations; // TODO 5: init array(LengthUnit.Millimeters, 0, 0, 0, 0);
+	@ElementList(required = false)
+    private static List<Location> globalBoxTrayLocations = new ArrayList<Location>(); // TODO 5: provide GUI
 
 
 	
@@ -259,23 +260,12 @@ public class HeapFeeder extends ReferenceFeeder {
     public HeapFeeder()
     {
     	// TODO 5: move this into the GUI!
-    	
-    	if(globalBoxTrayLocations == null) {
-//    		globalBoxTrayLocations = new List<Location>(new Location(LengthUnit.Millimeters, 0,0,0,0));
-//	    	globalBoxTrayLocations.add(0, new Location(LengthUnit.Millimeters, 0,0,0,0)); // dummy
-//	    	globalBoxTrayLocations.add(1, new Location(LengthUnit.Millimeters, 266+3*34,168,-7,0));
-//	    	globalBoxTrayLocations.add(2, new Location(LengthUnit.Millimeters, 266+2*34,168,-7,0));
-//	    	globalBoxTrayLocations.add(3, new Location(LengthUnit.Millimeters, 266+1*34,168,-7,0));
-//	    	globalBoxTrayLocations.add(4, new Location(LengthUnit.Millimeters, 266+0*34,168,-7,0));
-//	    	
-	    	
-	    	globalBoxTrayLocations = Arrays.asList(
-	    			new Location(LengthUnit.Millimeters, 0,0,0,0),  // dummy
-	    			new Location(LengthUnit.Millimeters, 266+3*34,168,-7,0), // 1
-	    			new Location(LengthUnit.Millimeters, 266+2*34,168,-7,0), // 2
-	    			new Location(LengthUnit.Millimeters, 266+1*34,168,-7,0), // 3
-	    			new Location(LengthUnit.Millimeters, 266+0*34,168,-7,0)  // 4
-	    			); 
+    	if(globalBoxTrayLocations.isEmpty()) {
+	    	globalBoxTrayLocations.add(0, new Location(LengthUnit.Millimeters, 0,0,0,0)); // dummy
+	    	globalBoxTrayLocations.add(1, new Location(LengthUnit.Millimeters, 266+3*34,168,-7,0));
+	    	globalBoxTrayLocations.add(2, new Location(LengthUnit.Millimeters, 266+2*34,168,-7,0));
+	    	globalBoxTrayLocations.add(3, new Location(LengthUnit.Millimeters, 266+1*34,168,-7,0));
+	    	globalBoxTrayLocations.add(4, new Location(LengthUnit.Millimeters, 266+0*34,168,-7,0));
     	}
     }
     
