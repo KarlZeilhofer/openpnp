@@ -121,6 +121,30 @@ public class HeapFeederConfigurationWizard
         						FormSpecs.DEFAULT_ROWSPEC,}));
         int row = 1;
         {
+	        JLabel lbl = new JLabel("Box Tray ID");
+	        devPanel.add(lbl, "2, "+ Integer.toString(row*2)+", right, default");
+	
+	        JTextField tf = tfboxTrayId = new JTextField();
+	        tf.setText("1");
+	        devPanel.add(tf, "4, "+ Integer.toString(row*2)+", fill, default");
+	        tf.setColumns(3);
+	        
+	        row++;
+        }
+        
+        {
+	        JLabel lbl = new JLabel("Sub Box");
+	        devPanel.add(lbl, "2, "+ Integer.toString(row*2)+", right, default");
+	
+	        JTextField tf = tfSubBoxName = new JTextField();
+	        tf.setText("A1");
+	        devPanel.add(tf, "4, "+ Integer.toString(row*2)+", fill, default");
+	        tf.setColumns(3);
+	        
+	        row++;
+        }
+        
+        {
 	        JLabel lbl = new JLabel("Pump Name");
 	        devPanel.add(lbl, "2, "+ Integer.toString(row*2)+", right, default");
 	
@@ -134,9 +158,9 @@ public class HeapFeederConfigurationWizard
         
         {
 	        JLabel lbl = new JLabel("Valve Name");
-	        devPanel.add(lbl, "2, 4, right, default");
+	        devPanel.add(lbl, "2, "+ Integer.toString(row*2)+", right, default");
 	
-	        JTextField tf = tfPumpName = new JTextField();
+	        JTextField tf = tfValveName = new JTextField();
 	        tf.setText("Ventil");
 	        devPanel.add(tf, "4, "+ Integer.toString(row*2)+", fill, default");
 	        tf.setColumns(3);
@@ -148,7 +172,7 @@ public class HeapFeederConfigurationWizard
      
         {
 	        JLabel lbl = new JLabel("Pressure Sensor Name");
-	        devPanel.add(lbl, "2, 6, right, default");
+	        devPanel.add(lbl, "2, "+ Integer.toString(row*2)+", right, default");
 	
 	        JTextField tf = tfPressureSensorName = new JTextField();
 	        devPanel.add(tf, "4, "+ Integer.toString(row*2)+", fill, default");
@@ -161,7 +185,7 @@ public class HeapFeederConfigurationWizard
      
         {
 	        JLabel lbl = new JLabel("Pressure Delta");
-	        devPanel.add(lbl, "2, 8, right, default");
+	        devPanel.add(lbl, "2, "+ Integer.toString(row*2)+", right, default");
 	
 	        JTextField tf = tfPressureDelta = new JTextField();
 	        devPanel.add(tf, "4, "+ Integer.toString(row*2)+", fill, default");
@@ -173,7 +197,7 @@ public class HeapFeederConfigurationWizard
      
         {
 	        JLabel lbl = new JLabel("max. Z-travel");
-	        devPanel.add(lbl, "2, 10, right, default");
+	        devPanel.add(lbl, "2, "+ Integer.toString(row*2)+", right, default");
 
 	        JTextField tf = tfMaxZTravel = new JTextField();
 	        devPanel.add(tf, "4, "+ Integer.toString(row*2)+", fill, default");
@@ -185,7 +209,7 @@ public class HeapFeederConfigurationWizard
      
         {
 	        JLabel lbl = new JLabel("Last Catch Z-Depth");
-	        devPanel.add(lbl, "2, 12, right, default");
+	        devPanel.add(lbl, "2, "+ Integer.toString(row*2)+", right, default");
 	        
 	        JTextField tf = tfLastCatchZDepth = new JTextField();
 	        devPanel.add(tf, "4, "+ Integer.toString(row*2)+", fill, default");
@@ -197,7 +221,7 @@ public class HeapFeederConfigurationWizard
      
         {
 	        JLabel lbl = new JLabel("Z step on pickup");
-	        devPanel.add(lbl, "2, 14, right, default");
+	        devPanel.add(lbl, "2, "+ Integer.toString(row*2)+", right, default");
 	        
 	        JTextField tf = tfZStepOnPickup = new JTextField();
 	        devPanel.add(tf, "4, "+ Integer.toString(row*2)+", fill, default");
@@ -209,7 +233,7 @@ public class HeapFeederConfigurationWizard
      
         {
 	        JLabel lbl = new JLabel("dwell after Z-step [ms]");
-	        devPanel.add(lbl, "2, 16, right, default");
+	        devPanel.add(lbl, "2, "+ Integer.toString(row*2)+", right, default");
 	        
 	        JTextField tf = tfDwellOnZStep = new JTextField();
 	        devPanel.add(tf, "4, "+ Integer.toString(row*2)+", fill, default");
@@ -284,7 +308,9 @@ public class HeapFeederConfigurationWizard
         DoubleConverter doubleConverter = new DoubleConverter(Configuration.get().getLengthDisplayFormat());
         
         // for reference see ReferenceTrayFeeder
-        addWrappedBinding(feeder, "pumpName", 			tfPumpName, 			"text");
+        addWrappedBinding(feeder, "boxTrayId", 			tfboxTrayId, 			"text", integerConverter);
+        addWrappedBinding(feeder, "subBoxName", 		tfSubBoxName, 			"text");
+    	addWrappedBinding(feeder, "pumpName", 			tfPumpName, 			"text");
         addWrappedBinding(feeder, "valveName", 			tfValveName, 			"text");
         addWrappedBinding(feeder, "pressureSensorName", tfPressureSensorName, 	"text");
         addWrappedBinding(feeder, "pressureDelta", 		tfPressureDelta, 		"text", doubleConverter);
@@ -292,6 +318,7 @@ public class HeapFeederConfigurationWizard
         addWrappedBinding(feeder, "lastCatchZDepth", 	tfLastCatchZDepth, 		"text", lengthConverter);
         addWrappedBinding(feeder, "zStepOnPickup", 		tfZStepOnPickup, 		"text", lengthConverter);
         addWrappedBinding(feeder, "dwellOnZStep", 		tfDwellOnZStep, 		"text", integerConverter);
+
 
 
         // TODO 1: is this needed? (copy from trayfeeder)

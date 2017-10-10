@@ -147,7 +147,7 @@ public class HeapFeeder extends ReferenceFeeder {
 
     @Attribute(required = false)
     private String subBoxName = "A1"; // TODO 2: make adjustable
-    @Attribute(required = false)
+	@Attribute(required = false)
     private int boxTrayId = 1; // TODO 2: make adjustable
     
 	@ElementList(required = false)
@@ -199,7 +199,8 @@ public class HeapFeeder extends ReferenceFeeder {
      * For simplicity, on the way from the up-camera to the separation area, the chip flip area
      * and the pickLocation there must not be any Box underneath. 
      */
-    private List<Location> heapToUpcamWayPoints;
+    private List<Location> heapToUpcamWayPoints; // TODO 4: implement in GUI
+    // NOTE: for the prototype, we use a direct path until to the right edge of box tray Nr 1.   
 
     /**
      * The separationDropLocation is a fixed location shared by all feeders of this type. 
@@ -333,6 +334,35 @@ public class HeapFeeder extends ReferenceFeeder {
          */
     	
         pickNewPart(camera, nozzle);
+        
+        //moveToDropLocation(camera, nozzle);
+    }
+    
+    private void moveToDropLocation(Camera camera, Nozzle nozzle) throws Exception {
+    	nozzle.moveToSafeZ();
+    	
+    	 	
+    	Location nozLoc = location.derive(0.0, 0.0, -0.01, 0.0);
+    	
+    	nozzle.moveTo(nozLoc);
+    	
+    	double dX=0;
+    	double dY=0;
+    	double dZ=0;
+    	
+    	if(boxColumn == 0) { // exit left
+    		dX = -boxTrayInnerSizeX.getValue()/2 - boxTrayId - corridorWidth.getValue()/2;
+    	}else{ // exit right
+    		dX = -boxTrayInnerSizeX.getValue()/2 - boxTrayId - corridorWidth.getValue()/2;
+    	}
+		dY = 0;
+		dZ = 0;
+		nozLoc = nozLoc.add(new Location(LengthUnit.Millimeters, dX,dY,dZ,0));
+		nozzle.moveTo(nozLoc);
+		
+		dX=0;
+		dY= -boxRow*(boxTrayInnerSizeY.getValue() + boxTrayWallThickness.getValue()) 
+				-boxTrayInnerSizeY.getValue()/2 -boxTrayWallThickness.getValue() - corridorWidth.getValue()/2;
     }
     
     /**
@@ -415,7 +445,7 @@ public class HeapFeeder extends ReferenceFeeder {
 			p1 = pressure(nozzle);
 			
 			retries--;
-            lastCatchZDepth.setValue(lastCatchZDepth.getValue() + dZ);
+            setLastCatchZDepth(lastCatchZDepth.add(dZ));
     	}while(p1-p0 < pressureDelta && retries > 0);
     	
     	
@@ -506,6 +536,56 @@ public class HeapFeeder extends ReferenceFeeder {
         return (ReferenceMachine) Configuration.get().getMachine();
     }
 
+    
+    
+    
+    public String getSubBoxName() {
+		return subBoxName;
+	}
+	public void setSubBoxName(String subBoxName) {
+		this.subBoxName = subBoxName;
+		autoUpdateLocation();
+	}
+	
+	private int boxRow = 0;
+	private int boxColumn = 0;
+	
+	private void autoUpdateLocation() {
+		// TODO 4: add button for update globalBoxTrayLocation.
+		//if(subBoxName.compareTo("A1")!=0) {
+			char rowChar = subBoxName.charAt(1);
+			char columnChar = subBoxName.charAt(0);
+			int row = rowChar - '1'; // starting from zero
+			int col = columnChar - 'A'; // starting from zero
+
+			// TODO 2: take rotaion of globalBoxTrayLocation into account!
+			double dX = boxTrayWallThickness.getValue() + 
+					boxTrayInnerSizeX.getValue()/2 + 
+					col*(boxTrayInnerSizeX.getValue() + boxTrayWallThickness.getValue());
+			double dY = boxTrayWallThickness.getValue() + 
+					boxTrayInnerSizeY.getValue()/2 + 
+					row*(boxTrayInnerSizeY.getValue() + boxTrayWallThickness.getValue());
+
+			location = globalBoxTrayLocations.get(boxTrayId).add(new Location(LengthUnit.Millimeters, dX,dY,0,0));
+			pickLocation = null; // reset picklocation
+			
+			Logger.info("Auto Update Location to " + location.toString());
+			
+			boxRow = row;
+			boxColumn = col;
+		//}
+	}
+
+
+	public int getBoxTrayId() {
+		return boxTrayId;
+	}
+
+	public void setBoxTrayId(int boxTrayId) {
+		this.boxTrayId = boxTrayId;
+		autoUpdateLocation();
+	}
+
 
     public String getPumpName() {
 		return pumpName;
@@ -551,6 +631,7 @@ public class HeapFeeder extends ReferenceFeeder {
 		return lastCatchZDepth;
 	}
 
+	// TODO 3: live update z-value
 	public void setLastCatchZDepth(Length lastCatchZDepth) {
 		Length oldValue = lastCatchZDepth;
 		this.lastCatchZDepth = lastCatchZDepth;
@@ -674,4 +755,18 @@ public class HeapFeeder extends ReferenceFeeder {
             throw new Error(e);
         }
     }
+    
+    @Override
+    public Location getLocation() {
+        return location;
+    }
+
+    @Override
+    // TODO 3: if this is the A1 box, this updates the globalBoxTrayLocation!
+    public void setLocation(Location location) {
+        Object oldValue = this.location;
+        this.location = location;
+        firePropertyChange("location", oldValue, location);
+    }
+
 }
