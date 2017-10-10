@@ -27,6 +27,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -71,6 +72,9 @@ public class HeapFeederConfigurationWizard
 	JTextField tfLastCatchZDepth;
 	JTextField tfZStepOnPickup;
 	JTextField tfDwellOnZStep;
+	
+	JTextField tfSubBoxName; // L or R
+	JTextField tfboxTrayId; // L or R
 
 	
 
@@ -110,26 +114,35 @@ public class HeapFeederConfigurationWizard
         						FormSpecs.RELATED_GAP_ROWSPEC,
         						FormSpecs.DEFAULT_ROWSPEC,
         						FormSpecs.RELATED_GAP_ROWSPEC,
+        						FormSpecs.DEFAULT_ROWSPEC,
+        						FormSpecs.RELATED_GAP_ROWSPEC,
+        						FormSpecs.DEFAULT_ROWSPEC,
+        						FormSpecs.RELATED_GAP_ROWSPEC,
         						FormSpecs.DEFAULT_ROWSPEC,}));
-        
+        int row = 1;
         {
-	        JLabel lblPumpName = new JLabel("Pump Name");
-	        devPanel.add(lblPumpName, "2, 2, right, default");
+	        JLabel lbl = new JLabel("Pump Name");
+	        devPanel.add(lbl, "2, "+ Integer.toString(row*2)+", right, default");
 	
-	        tfPumpName = new JTextField();
-	        tfPumpName.setText("Pumpe");
-	        devPanel.add(tfPumpName, "4, 2, fill, default");
-	        tfPumpName.setColumns(3);
+	        JTextField tf = tfPumpName = new JTextField();
+	        tf.setText("Pumpe");
+	        devPanel.add(tf, "4, "+ Integer.toString(row*2)+", fill, default");
+	        tf.setColumns(3);
+	        
+	        row++;
         }
         
         {
 	        JLabel lbl = new JLabel("Valve Name");
 	        devPanel.add(lbl, "2, 4, right, default");
 	
-	        tfValveName = new JTextField();
-	        tfValveName.setText("Ventil");
-	        devPanel.add(tfValveName, "4, 4, fill, default");
-	        tfValveName.setColumns(3);
+	        JTextField tf = tfPumpName = new JTextField();
+	        tf.setText("Ventil");
+	        devPanel.add(tf, "4, "+ Integer.toString(row*2)+", fill, default");
+	        tf.setColumns(3);
+	        
+	        row++;
+
         }
         
      
@@ -137,10 +150,12 @@ public class HeapFeederConfigurationWizard
 	        JLabel lbl = new JLabel("Pressure Sensor Name");
 	        devPanel.add(lbl, "2, 6, right, default");
 	
-	        tfPressureSensorName = new JTextField();
-	        tfPressureSensorName.setText("Drucksensor");
-	        devPanel.add(tfPressureSensorName, "4, 6, fill, default");
-	        tfPressureSensorName.setColumns(3);
+	        JTextField tf = tfPressureSensorName = new JTextField();
+	        devPanel.add(tf, "4, "+ Integer.toString(row*2)+", fill, default");
+	        tf.setColumns(3);
+	        
+	        row++;
+
         }
         
      
@@ -148,54 +163,59 @@ public class HeapFeederConfigurationWizard
 	        JLabel lbl = new JLabel("Pressure Delta");
 	        devPanel.add(lbl, "2, 8, right, default");
 	
-	        tfPressureDelta = new JTextField();
-	        tfPressureDelta.setText("5.00");
-	        devPanel.add(tfPressureDelta, "4, 8, fill, default");
-	        tfPressureDelta.setColumns(3);
+	        JTextField tf = tfPressureDelta = new JTextField();
+	        devPanel.add(tf, "4, "+ Integer.toString(row*2)+", fill, default");
+	        tf.setColumns(3);
+	        
+	        row++;
         }
         
      
         {
 	        JLabel lbl = new JLabel("max. Z-travel");
 	        devPanel.add(lbl, "2, 10, right, default");
-	
-	        tfMaxZTravel = new JTextField();
-	        tfMaxZTravel.setText("10.0");
-	        devPanel.add(tfMaxZTravel, "4, 10, fill, default");
-	        tfMaxZTravel.setColumns(3);
+
+	        JTextField tf = tfMaxZTravel = new JTextField();
+	        devPanel.add(tf, "4, "+ Integer.toString(row*2)+", fill, default");
+	        tf.setColumns(3);
+	        
+	        row++;
         }
         
      
         {
 	        JLabel lbl = new JLabel("Last Catch Z-Depth");
 	        devPanel.add(lbl, "2, 12, right, default");
-	
-	        tfLastCatchZDepth = new JTextField();
-	        tfLastCatchZDepth.setText("0.0");
-	        devPanel.add(tfLastCatchZDepth, "4, 12, fill, default");
-	        tfLastCatchZDepth.setColumns(3);
+	        
+	        JTextField tf = tfLastCatchZDepth = new JTextField();
+	        devPanel.add(tf, "4, "+ Integer.toString(row*2)+", fill, default");
+	        tf.setColumns(3);
+	        
+	        row++;
         }
         
      
         {
 	        JLabel lbl = new JLabel("Z step on pickup");
 	        devPanel.add(lbl, "2, 14, right, default");
-	
-	        tfZStepOnPickup = new JTextField();
-	        tfZStepOnPickup.setText("0.1");
-	        devPanel.add(tfZStepOnPickup, "4, 14, fill, default");
-	        tfZStepOnPickup.setColumns(3);
+	        
+	        JTextField tf = tfZStepOnPickup = new JTextField();
+	        devPanel.add(tf, "4, "+ Integer.toString(row*2)+", fill, default");
+	        tf.setColumns(3);
+	        
+	        row++;
         }
         
      
         {
 	        JLabel lbl = new JLabel("dwell after Z-step [ms]");
 	        devPanel.add(lbl, "2, 16, right, default");
-	
-	        tfDwellOnZStep = new JTextField();
-	        tfDwellOnZStep.setText("100");
-	        devPanel.add(tfDwellOnZStep, "4, 16, fill, default");
-	        tfDwellOnZStep.setColumns(3);
+	        
+	        JTextField tf = tfDwellOnZStep = new JTextField();
+	        devPanel.add(tf, "4, "+ Integer.toString(row*2)+", fill, default");
+	        tf.setColumns(3);
+	        
+	        row++;
         }
         
      

@@ -20,6 +20,7 @@
 
 package org.openpnp.machine.reference.feeder;
 
+import java.util.Arrays;
 import java.util.List;
 
 import javax.swing.Action;
@@ -34,6 +35,7 @@ import org.openpnp.machine.reference.ReferenceActuator;
 import org.openpnp.machine.reference.ReferenceDriver;
 import org.openpnp.machine.reference.ReferenceFeeder;
 import org.openpnp.machine.reference.ReferenceMachine;
+import org.openpnp.machine.reference.ReferenceNozzle;
 import org.openpnp.machine.reference.feeder.wizards.HeapFeederConfigurationWizard;
 import org.openpnp.model.Configuration;
 import org.openpnp.model.Length;
@@ -48,7 +50,7 @@ import org.openpnp.util.VisionUtils;
 import org.openpnp.vision.pipeline.CvPipeline;
 import org.simpleframework.xml.Attribute;
 import org.simpleframework.xml.Element;
-
+import org.simpleframework.xml.ElementList;
 import org.pmw.tinylog.Logger;
 
 
@@ -132,6 +134,25 @@ public class HeapFeeder extends ReferenceFeeder {
     private Length lastCatchZDepth = new Length(0, LengthUnit.Millimeters); // remember the top level of the heap (relative to location.z)
 
     
+    
+    @Element(required = false)
+    private Length corridorWidth = new Length(7, LengthUnit.Millimeters); // TODO 5: make adjustable
+    @Element(required = false)
+    private Length boxTrayWallThickness = new Length(1, LengthUnit.Millimeters); // TODO 5: make adjustable
+    @Element(required = false)
+    private Length boxTrayInnerSizeX = new Length(12, LengthUnit.Millimeters); // TODO 5: make adjustable
+    @Element(required = false)
+    private Length boxTrayInnerSizeY = new Length(12, LengthUnit.Millimeters); // TODO 5: make adjustable
+
+    @Attribute(required = false)
+    private String subBoxName = "A1"; // TODO 2: make adjustable
+    @Attribute(required = false)
+    private int boxTrayId = 1; // TODO 2: make adjustable
+    
+    @ElementList(required = false)
+    private static List<Location> globalBoxTrayLocations; // TODO 5: init array(LengthUnit.Millimeters, 0, 0, 0, 0);
+
+
 	
     @Element(required = false)
     private CvPipeline pipeline = createDefaultPipeline();
@@ -233,6 +254,30 @@ public class HeapFeeder extends ReferenceFeeder {
      */
     private Location pickLocation;
 
+    
+    // constructor
+    public HeapFeeder()
+    {
+    	// TODO 5: move this into the GUI!
+    	
+    	if(globalBoxTrayLocations == null) {
+//    		globalBoxTrayLocations = new List<Location>(new Location(LengthUnit.Millimeters, 0,0,0,0));
+//	    	globalBoxTrayLocations.add(0, new Location(LengthUnit.Millimeters, 0,0,0,0)); // dummy
+//	    	globalBoxTrayLocations.add(1, new Location(LengthUnit.Millimeters, 266+3*34,168,-7,0));
+//	    	globalBoxTrayLocations.add(2, new Location(LengthUnit.Millimeters, 266+2*34,168,-7,0));
+//	    	globalBoxTrayLocations.add(3, new Location(LengthUnit.Millimeters, 266+1*34,168,-7,0));
+//	    	globalBoxTrayLocations.add(4, new Location(LengthUnit.Millimeters, 266+0*34,168,-7,0));
+//	    	
+	    	
+	    	globalBoxTrayLocations = Arrays.asList(
+	    			new Location(LengthUnit.Millimeters, 0,0,0,0),  // dummy
+	    			new Location(LengthUnit.Millimeters, 266+3*34,168,-7,0), // 1
+	    			new Location(LengthUnit.Millimeters, 266+2*34,168,-7,0), // 2
+	    			new Location(LengthUnit.Millimeters, 266+1*34,168,-7,0), // 3
+	    			new Location(LengthUnit.Millimeters, 266+0*34,168,-7,0)  // 4
+	    			); 
+    	}
+    }
     
 
 	@Override
@@ -451,7 +496,8 @@ public class HeapFeeder extends ReferenceFeeder {
     }
     
     private ReferenceActuator pressureSensor(Nozzle nozzle) {
-    	return (ReferenceActuator) nozzle.getHead().getActuatorByName(pressureSensorName);
+    	return (ReferenceActuator) nozzle.getHead().getActuatorByName("Drucksensor");
+    	// return (ReferenceActuator) nozzle.getHead().getActuatorByName(((ReferenceNozzle)nozzle).getVacuumSenseActuatorName()); // TODO 4: use this Attribute
     }
     
     private ReferenceActuator zSwitchInput(Nozzle nozzle) {
