@@ -21,14 +21,11 @@
 package org.openpnp.machine.reference.feeder;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 
 import javax.swing.Action;
 
 import org.apache.commons.io.IOUtils;
-import org.jcodec.common.model.Unit;
 import org.opencv.core.RotatedRect;
 import org.openpnp.gui.MainFrame;
 import org.openpnp.gui.support.PropertySheetWizardAdapter;
@@ -37,7 +34,6 @@ import org.openpnp.machine.reference.ReferenceActuator;
 import org.openpnp.machine.reference.ReferenceDriver;
 import org.openpnp.machine.reference.ReferenceFeeder;
 import org.openpnp.machine.reference.ReferenceMachine;
-import org.openpnp.machine.reference.ReferenceNozzle;
 import org.openpnp.machine.reference.feeder.wizards.HeapFeederConfigurationWizard;
 import org.openpnp.model.Configuration;
 import org.openpnp.model.Length;
@@ -52,7 +48,7 @@ import org.openpnp.util.VisionUtils;
 import org.openpnp.vision.pipeline.CvPipeline;
 import org.simpleframework.xml.Attribute;
 import org.simpleframework.xml.Element;
-import org.simpleframework.xml.ElementList;
+import org.simpleframework.xml.core.Commit;
 import org.pmw.tinylog.Logger;
 
 
@@ -124,13 +120,13 @@ public class HeapFeeder extends ReferenceFeeder {
     @Attribute(required = false)
     private String pressureSensorName = "Drucksensor";
     @Attribute(required = false)
-    private double pressureDelta = 5.0;
+    private double pressureDelta = 3.0;
     @Element(required = false)
-    private Length maxZTravel = new Length(10, LengthUnit.Millimeters); // length unit
+    private Length maxZTravel = new Length(-2.0, LengthUnit.Millimeters); // length unit
     @Element(required = false)
-    private Length zStepOnPickup = new Length(-0.1, LengthUnit.Millimeters); // length unit
+    private Length zStepOnPickup = new Length(-0.2, LengthUnit.Millimeters); // length unit
     @Attribute(required = false)
-    private int dwellOnZStep = 100; // needed for sensor stabilization
+    private int dwellOnZStep = 0; // needed for sensor stabilization
 
     @Element(required = false)
     private Length lastCatchZDepth = new Length(0, LengthUnit.Millimeters); // remember the top level of the heap (relative to location.z)
@@ -157,25 +153,45 @@ public class HeapFeeder extends ReferenceFeeder {
    
     @Element(required = false)
     private CvPipeline upsideUpPipeline = createDefaultPipeline();
-    @Attribute(required = false)
-    private String useUpsideUpPielineFrom = new String(); // if this string is empty, we use our own pipeline. 
+    @Attribute(required = false)	   
+    private String useUpsideUpPipelineFrom = new String(); // if this string is empty, we use our own pipeline. 
 
     @Element(required = false)
     private CvPipeline upsideDownPipeline = createDefaultPipeline();
     @Attribute(required = false)
-    private String useUpsideDownPielineFrom = new String(); // if this string is empty, we use our own pipeline. 
+    private String useUpsideDownPipelineFrom = new String(); // if this string is empty, we use our own pipeline. 
+    @Attribute(required = false)
+    private boolean upsideDownPipelineEnabledFlag = true;
 
-    @Element(required = false)
+
+	@Element(required = false)
     private CvPipeline anythingElsePipeline = createDefaultPipeline();
     @Attribute(required = false)
-    private String useAnythingElsePielineFrom = new String(); // if this string is empty, we use our own pipeline. 
+    private String useAnythingElsePipelineFrom = new String(); // if this string is empty, we use our own pipeline. 
 
     @Element(required = false)
     private CvPipeline sideViewPipeline = createDefaultPipeline();
     @Attribute(required = false)
     private String useSideViewPipelineFrom = new String(); // if this string is empty, we use our own pipeline. 
-  
+    @Attribute(required = false)
+    private boolean sideViewPipelineEnabledFlag = false;
+ 
    
+    public boolean isUpsideDownPipelineEnabledFlag() {
+		return upsideDownPipelineEnabledFlag;
+	}
+
+	public void setUpsideDownPipelineEnabledFlag(boolean upsideDownPipelineEnabledFlag) {
+		this.upsideDownPipelineEnabledFlag = upsideDownPipelineEnabledFlag;
+	}
+
+	public boolean isSideViewPipelineEnabledFlag() {
+		return sideViewPipelineEnabledFlag;
+	}
+
+	public void setSideViewPipelineEnabledFlag(boolean sideViewPipelineEnabledFlag) {
+		this.sideViewPipelineEnabledFlag = sideViewPipelineEnabledFlag;
+	}
 
 
     
@@ -272,6 +288,14 @@ public class HeapFeeder extends ReferenceFeeder {
     // constructor
     public HeapFeeder()
     {
+    	Logger.trace("Constructor: this.name = " + name); /// see afterXmlInit()
+    }
+    
+    /**
+     * This method is called after initialization of all the Attributes and Elements
+     */
+    @Commit
+    public void afterXmlInit() {
     	// TODO 5: move this into the GUI!
     	if(globalBoxTrayLocations.isEmpty()) {
 	    	globalBoxTrayLocations.add(0, new Location(LengthUnit.Millimeters, 0,0,0,0)); // dummy
@@ -281,7 +305,7 @@ public class HeapFeeder extends ReferenceFeeder {
 	    	globalBoxTrayLocations.add(4, new Location(LengthUnit.Millimeters, 266+0*34,168,-7,0));
     	}
     	
-    	Logger.trace("Constructor: this.name = " + name);
+    	Logger.trace("Constructor: this.name = " + name);   	
     }
     
 
@@ -378,12 +402,14 @@ public class HeapFeeder extends ReferenceFeeder {
     	}else{ // exit right
     		dX = +boxTrayInnerSizeX.getValue()/2 + boxTrayWallThickness.getValue() + corridorWidth.getValue()/2;
     	}
-		dY = 0; dZ = 0; // dont change
+		dY = 0; 
+		dZ = 0; // dont change
 		nozLoc = nozLoc.add(new Location(LengthUnit.Millimeters, dX,dY,dZ,0));
 		nozzle.moveTo(nozLoc);
 		
 		// * move down into the corridor
-		x = null; y = null;
+		x = null; 
+		y = null;
 		z = location.getZ() -5; // TODO 5: we assume here a save-z of 0
 		nozLoc = nozLoc.derive(x, y, z, null);
 		nozzle.moveTo(nozLoc);
@@ -401,7 +427,8 @@ public class HeapFeeder extends ReferenceFeeder {
 		// * move to the right to the exit of the x-corridor
 		x = globalBoxTrayLocations.get(1).getX() + 
 				(3*boxTrayWallThickness.getValue() + 2*boxTrayInnerSizeX.getValue() + corridorWidth.getValue());
-		y=null; z=null; // dont change
+		y=null; 
+		z=null; // dont change
 		nozLoc = nozLoc.derive(x, y, z, null);
 		nozzle.moveTo(nozLoc);
 		
@@ -415,7 +442,8 @@ public class HeapFeeder extends ReferenceFeeder {
 		nozLoc = nozLoc.add(new Location(LengthUnit.Millimeters, dX,dY,dZ,0));
 		nozzle.moveTo(nozLoc); // move above drop location at saveZ
 		
-		x=null; y=null;
+		x=null; 
+		y=null;
 		z = dropBoxLocation.getZ();
 		nozLoc = nozLoc.derive(x, y, z, null);
 		nozzle.moveTo(nozLoc); // go down to drop height. 
@@ -471,15 +499,27 @@ public class HeapFeeder extends ReferenceFeeder {
 				double dX = 0;
 				double dY = 0;
 				
-				if(stirDir>=4)
+				if(stirDir>=4) {
 					stirDir=0;
-				
+				}
 				// stiring states:
 				switch(stirDir) {
-				case 0: dX = r; dY = 0; break;
-				case 1: dX = 0; dY = r; break;
-				case 2: dX = -r; dY = 0; break;
-				case 3: dX = 0; dY = -r; break;
+				case 0: 
+					dX = r; 
+					dY = 0; 
+					break;
+				case 1: 
+					dX = 0; 
+					dY = r; 
+					break;
+				case 2: 
+					dX = -r; 
+					dY = 0; 
+					break;
+				case 3: 
+					dX = 0; 
+					dY = -r; 
+					break;
 				}
 				stirDir++;
 				
@@ -719,10 +759,10 @@ public class HeapFeeder extends ReferenceFeeder {
 		camera.moveTo(dropBoxLocation);
 		
 		CvPipeline pipeline = null;
-		if(useUpsideUpPielineFrom.isEmpty()) {
+		if(useUpsideUpPipelineFrom.isEmpty()) {
 			pipeline = upsideUpPipeline;
 		}else {
-			HeapFeeder otherFeeder = (HeapFeeder) getMachine().getFeederByName(useUpsideUpPielineFrom);
+			HeapFeeder otherFeeder = (HeapFeeder) getMachine().getFeederByName(useUpsideUpPipelineFrom);
 			if(otherFeeder == null) {
 				throw new Exception("Error: referred Feeder for Upside Up cannot be accessed");
 			}else {
@@ -739,10 +779,10 @@ public class HeapFeeder extends ReferenceFeeder {
 		camera.moveTo(dropBoxLocation);
 		
 		CvPipeline pipeline = null;
-		if(useUpsideDownPielineFrom.isEmpty()) {
+		if(useUpsideDownPipelineFrom.isEmpty()) {
 			pipeline = upsideDownPipeline;
 		}else {
-			HeapFeeder otherFeeder = (HeapFeeder) getMachine().getFeederByName(useUpsideDownPielineFrom);
+			HeapFeeder otherFeeder = (HeapFeeder) getMachine().getFeederByName(useUpsideDownPipelineFrom);
 			if(otherFeeder == null) {
 				throw new Exception("Error: referred Feeder for Upside Up cannot be accessed");
 			}else {
@@ -759,10 +799,10 @@ public class HeapFeeder extends ReferenceFeeder {
 		camera.moveTo(dropBoxLocation);
 		
 		CvPipeline pipeline = null;
-		if(useUpsideUpPielineFrom.isEmpty()) {
+		if(useUpsideUpPipelineFrom.isEmpty()) {
 			pipeline = anythingElsePipeline;
 		}else {
-			HeapFeeder otherFeeder = (HeapFeeder) getMachine().getFeederByName(useAnythingElsePielineFrom);
+			HeapFeeder otherFeeder = (HeapFeeder) getMachine().getFeederByName(useAnythingElsePipelineFrom);
 			if(otherFeeder == null) {
 				throw new Exception("Error: referred Feeder for Anything Else cannot be accessed");
 			}else {
@@ -779,10 +819,10 @@ public class HeapFeeder extends ReferenceFeeder {
 		camera.moveTo(dropBoxLocation);
 		
 		CvPipeline pipeline = null;
-		if(useUpsideUpPielineFrom.isEmpty()) {
+		if(useUpsideUpPipelineFrom.isEmpty()) {
 			pipeline = anythingElsePipeline;
 		}else {
-			HeapFeeder otherFeeder = (HeapFeeder) getMachine().getFeederByName(useAnythingElsePielineFrom);
+			HeapFeeder otherFeeder = (HeapFeeder) getMachine().getFeederByName(useAnythingElsePipelineFrom);
 			if(otherFeeder == null) {
 				throw new Exception("Error: referred Feeder for Anything Else cannot be accessed");
 			}else {
@@ -913,13 +953,13 @@ public class HeapFeeder extends ReferenceFeeder {
 	}
 
 
-	public String getUseUpsideUpPielineFrom() {
-		return useUpsideUpPielineFrom;
+	public String getUseUpsideUpPipelineFrom() {
+		return useUpsideUpPipelineFrom;
 	}
 
 
-	public void setUseUpsideUpPielineFrom(String useUpsideUpPielineFrom) {
-		this.useUpsideUpPielineFrom = useUpsideUpPielineFrom;
+	public void setUseUpsideUpPipelineFrom(String useUpsideUppipelineFrom) {
+		this.useUpsideUpPipelineFrom = useUpsideUppipelineFrom;
 	}
 
 
@@ -933,13 +973,13 @@ public class HeapFeeder extends ReferenceFeeder {
 	}
 
 
-	public String getUseUpsideDownPielineFrom() {
-		return useUpsideDownPielineFrom;
+	public String getUseUpsideDownPipelineFrom() {
+		return useUpsideDownPipelineFrom;
 	}
 
 
-	public void setUseUpsideDownPielineFrom(String useUpsideDownPielineFrom) {
-		this.useUpsideDownPielineFrom = useUpsideDownPielineFrom;
+	public void setUseUpsideDownPipelineFrom(String useUpsideDownpipelineFrom) {
+		this.useUpsideDownPipelineFrom = useUpsideDownpipelineFrom;
 	}
 
 	public CvPipeline getAnythingElsePipeline() {
@@ -952,13 +992,13 @@ public class HeapFeeder extends ReferenceFeeder {
 	}
 
 
-	public String getUseAnythingElsePielineFrom() {
-		return useAnythingElsePielineFrom;
+	public String getUseAnythingElsePipelineFrom() {
+		return useAnythingElsePipelineFrom;
 	}
 
 
-	public void setUseAnythingElsePielineFrom(String useAnythingElsePielineFrom) {
-		this.useAnythingElsePielineFrom = useAnythingElsePielineFrom;
+	public void setUseAnythingElsePipelineFrom(String useAnythingElsepipelineFrom) {
+		this.useAnythingElsePipelineFrom = useAnythingElsepipelineFrom;
 	}
 
 

@@ -175,45 +175,46 @@ public class HeapFeederConfigurationWizard
 	        
 	        row++;
         }
-        
-        {
-	        JLabel lbl = new JLabel("Pump Name");
-	        devPanel.add(lbl, "2, "+ Integer.toString(row*2)+", right, default");
-	
-	        JTextField tf = tfPumpName = new JTextField();
-	        tf.setText("Pumpe");
-	        devPanel.add(tf, "4, "+ Integer.toString(row*2)+", fill, default");
-	        tf.setColumns(3);
-	        
-	        row++;
-        }
-        
-        {
-	        JLabel lbl = new JLabel("Valve Name");
-	        devPanel.add(lbl, "2, "+ Integer.toString(row*2)+", right, default");
-	
-	        JTextField tf = tfValveName = new JTextField();
-	        tf.setText("Ventil");
-	        devPanel.add(tf, "4, "+ Integer.toString(row*2)+", fill, default");
-	        tf.setColumns(3);
-	        
-	        row++;
-
-        }
-        
-     
-        {
-	        JLabel lbl = new JLabel("Pressure Sensor Name");
-	        devPanel.add(lbl, "2, "+ Integer.toString(row*2)+", right, default");
-	
-	        JTextField tf = tfPressureSensorName = new JTextField();
-	        devPanel.add(tf, "4, "+ Integer.toString(row*2)+", fill, default");
-	        tf.setColumns(3);
-	        
-	        row++;
-
-        }
-        
+      
+// TODO 5: reenable these fields, or get the values from somewhere else
+//        {
+//	        JLabel lbl = new JLabel("Pump Name");
+//	        devPanel.add(lbl, "2, "+ Integer.toString(row*2)+", right, default");
+//	
+//	        JTextField tf = tfPumpName = new JTextField();
+//	        tf.setText("Pumpe");
+//	        devPanel.add(tf, "4, "+ Integer.toString(row*2)+", fill, default");
+//	        tf.setColumns(3);
+//	        
+//	        row++;
+//        }
+//        
+//        {
+//	        JLabel lbl = new JLabel("Valve Name");
+//	        devPanel.add(lbl, "2, "+ Integer.toString(row*2)+", right, default");
+//	
+//	        JTextField tf = tfValveName = new JTextField();
+//	        tf.setText("Ventil");
+//	        devPanel.add(tf, "4, "+ Integer.toString(row*2)+", fill, default");
+//	        tf.setColumns(3);
+//	        
+//	        row++;
+//
+//        }
+//        
+//     
+//        {
+//	        JLabel lbl = new JLabel("Pressure Sensor Name");
+//	        devPanel.add(lbl, "2, "+ Integer.toString(row*2)+", right, default");
+//	
+//	        JTextField tf = tfPressureSensorName = new JTextField();
+//	        devPanel.add(tf, "4, "+ Integer.toString(row*2)+", fill, default");
+//	        tf.setColumns(3);
+//	        
+//	        row++;
+//
+//        }
+//        
      
         {
 	        JLabel lbl = new JLabel("Pressure Delta");
@@ -294,8 +295,13 @@ public class HeapFeederConfigurationWizard
                 FormSpecs.RELATED_GAP_COLSPEC,
                 FormSpecs.DEFAULT_COLSPEC, // Use From Label
                 FormSpecs.RELATED_GAP_COLSPEC,
-                FormSpecs.DEFAULT_COLSPEC,}, // Text Field: use from...
+                FormSpecs.DEFAULT_COLSPEC, // Text Field: use from...
+                FormSpecs.RELATED_GAP_COLSPEC,
+                FormSpecs.DEFAULT_COLSPEC, // Text Field: use from...
+                }, 
             new RowSpec[] {
+                    FormSpecs.RELATED_GAP_ROWSPEC,
+                    FormSpecs.DEFAULT_ROWSPEC, // Table Headers
                     FormSpecs.RELATED_GAP_ROWSPEC,
                     FormSpecs.DEFAULT_ROWSPEC, // Upside Up
                     FormSpecs.RELATED_GAP_ROWSPEC,
@@ -303,9 +309,28 @@ public class HeapFeederConfigurationWizard
                     FormSpecs.RELATED_GAP_ROWSPEC,
                     FormSpecs.DEFAULT_ROWSPEC, // Anything Else
 	                FormSpecs.RELATED_GAP_ROWSPEC,
-	                FormSpecs.DEFAULT_ROWSPEC,})); // Side View
+	                FormSpecs.DEFAULT_ROWSPEC, // Side View
+	                FormSpecs.RELATED_GAP_ROWSPEC,
+	                FormSpecs.DEFAULT_ROWSPEC, // Move To Buttons
+	                })); 
 
         row = 1;
+        col = 1;
+        {
+        	col++;
+        	
+	        panel.add(new JLabel("Enabled"), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", center, default");
+	        col++;
+	        
+	        col++;
+	        
+	        panel.add(new JLabel("Get it from other HeapFeeder"), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", center, default");
+	        col++;
+	        
+        }
+
+        
+        row = 2;
         col = 1;
         {
 	        panel.add(new JLabel("Upside Up: "), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", right, default");
@@ -314,11 +339,8 @@ public class HeapFeederConfigurationWizard
 //	        panel.add(new JCheckBox("Enabled"), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", right, default");
 	        col++;
 
-	        panel.add(bEditUpsideUp = new JButton("Edit"), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", right, default");
+	        panel.add(bEditUpsideUp = new JButton("Edit"), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", center, default");
 	        bEditUpsideUp.addActionListener(new BtnEditUpsideUpPipelineActionListener());
-	        col++;
-
-	        panel.add(new JLabel("Use From"), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", right, default");
 	        col++;
 
 	        panel.add(tfUseUpsideUpPipelineFrom = new JTextField("NO_REFERRED_FEEDER"), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", fill, default");
@@ -326,20 +348,17 @@ public class HeapFeederConfigurationWizard
         }
 
         
-        row = 2;
+        row = 3;
         col = 1;
         {
 	        panel.add(new JLabel("Upside Down:"), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", right, default");
 	        col++;
 
-	        panel.add(cbEnableUpsideDown = new JCheckBox("Enabled", true), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", right, default");
+	        panel.add(cbEnableUpsideDown = new JCheckBox("Enabled", true), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", left, default");
 	        col++;
 
-	        panel.add(bEditUpsideDown = new JButton("Edit"), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", right, default");
+	        panel.add(bEditUpsideDown = new JButton("Edit"), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", center, default");
 	        bEditUpsideDown.addActionListener(new BtnEditUpsideDownPipelineActionListener());
-	        col++;
-
-	        panel.add(new JLabel("Use From"), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", right, default");
 	        col++;
 
 	        panel.add(tfUseUpsideDownPipelineFrom = new JTextField(), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", fill, default");
@@ -347,7 +366,7 @@ public class HeapFeederConfigurationWizard
 	        
         }
     	
-        row = 3;
+        row = 4;
         col = 1;
         {
 	        panel.add(new JLabel("Anything Else: "), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", right, default");
@@ -356,11 +375,8 @@ public class HeapFeederConfigurationWizard
 //	        panel.add(new JCheckBox("Enabled", true), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", right, default");
 	        col++;
 
-	        panel.add(bEditAnythingElse = new JButton("Edit"), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", right, default");
+	        panel.add(bEditAnythingElse = new JButton("Edit"), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", center, default");
 	        bEditAnythingElse.addActionListener(new BtnEditAnythingElsePipelineActionListener());
-	        col++;
-
-	        panel.add(new JLabel("Use From"), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", right, default");
 	        col++;
 
 	        panel.add(tfUseAnythingElsePipelineFrom = new JTextField(), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", fill, default");
@@ -369,20 +385,17 @@ public class HeapFeederConfigurationWizard
         }
 
         
-        row = 4;
+        row = 5;
         col = 1;
         {
 	        panel.add(new JLabel("Side View: "), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", right, default");
 	        col++;
 
-	        panel.add(cbEnableSideView = new JCheckBox("Enabled", false), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", right, default");
+	        panel.add(cbEnableSideView = new JCheckBox("Enabled", false), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", left, default");
 	        col++;
 
-	        panel.add(bEditSideView = new JButton("Edit"), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", right, default");
+	        panel.add(bEditSideView = new JButton("Edit"), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", center, default");
 	        bEditSideView.addActionListener(new BtnEditSideViewPipelineActionListener());
-	        col++;
-
-	        panel.add(new JLabel("Use From"), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", right, default");
 	        col++;
 
 	        panel.add(tfUseSideViewPipelineFrom = new JTextField(), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", fill, default");
@@ -392,7 +405,7 @@ public class HeapFeederConfigurationWizard
         }
 
         
-        row = 5;
+        row = 6;
         col = 1;
         {
 	        panel.add(new JLabel("Camera: "), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", right, default");
@@ -402,11 +415,11 @@ public class HeapFeederConfigurationWizard
 	        bMoveToDropBox.addActionListener(new BtnMoveToDropBoxActionListener());
 	        col++;
 
-	        panel.add(bMoveToDropBox = new JButton("Move to DropBox"), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", right, default");
-	        bMoveToDropBox.addActionListener(new BtnMoveToSideViewActionListener());
+	        panel.add(bMoveToSideView = new JButton("Move to Side View"), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", right, default");
+	        bMoveToSideView.addActionListener(new BtnMoveToSideViewActionListener());
 	        col++;
 	        
-	        // TODO 4: add set DropBox location
+	        // TODO 4: add Button for set DropBox location
 	        // TODO 4: add Button for set Side View location
 	        row++;
         }
@@ -444,10 +457,17 @@ public class HeapFeederConfigurationWizard
         addWrappedBinding(feeder, "lastCatchZDepth", 	tfLastCatchZDepth, 		"text", lengthConverter);
         addWrappedBinding(feeder, "zStepOnPickup", 		tfZStepOnPickup, 		"text", lengthConverter);
         addWrappedBinding(feeder, "dwellOnZStep", 		tfDwellOnZStep, 		"text", integerConverter);
+        
+        addWrappedBinding(feeder, "useUpsideUpPipelineFrom", 		tfUseUpsideUpPipelineFrom, 		"text");
+        addWrappedBinding(feeder, "useUpsideDownPipelineFrom", 		tfUseUpsideDownPipelineFrom, 	"text");
+        addWrappedBinding(feeder, "useAnythingElsePipelineFrom", 	tfUseAnythingElsePipelineFrom, 	"text");
+        addWrappedBinding(feeder, "useSideViewPipelineFrom", 		tfUseSideViewPipelineFrom, 		"text");
+        
+        addWrappedBinding(feeder, "upsideDownPipelineEnabledFlag", cbEnableUpsideDown, "checked");	
+        addWrappedBinding(feeder, "sideViewPipelineEnabledFlag", cbEnableSideView, "checked");	
 
 
-
-        // TODO 1: is this needed? (copy from trayfeeder)
+        // TODO 5: is this needed? (copy from trayfeeder)
 //        ComponentDecorators.decorateWithAutoSelect(tfPumpName);
 //        ComponentDecorators.decorateWithAutoSelectAndLengthConversion(textFieldOffsetsX);
 //        ComponentDecorators.decorateWithAutoSelectAndLengthConversion(textFieldOffsetsY);
