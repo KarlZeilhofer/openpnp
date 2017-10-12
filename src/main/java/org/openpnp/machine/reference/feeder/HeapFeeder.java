@@ -22,6 +22,7 @@ package org.openpnp.machine.reference.feeder;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 
 import javax.swing.Action;
@@ -150,30 +151,31 @@ public class HeapFeeder extends ReferenceFeeder {
 	@Attribute(required = false)
     private int boxTrayId = 1; // TODO 2: make adjustable
     
-	@ElementList(required = false)
+	// @ElementList(required = false) // TODO 3: fix bug with Megabytes of repeated entries in machine.xml
     private static List<Location> globalBoxTrayLocations = new ArrayList<Location>(); // TODO 5: provide GUI
 
-
-	
+   
     @Element(required = false)
-    private CvPipeline pipeline = createDefaultPipeline();
-
-    @Element(required = false)
-    private CvPipeline trainingPipeline = createDefaultTrainingPipeline();
-    
-    // TODO 0: add more pipelines for the different stages:
-    // TODO 0: add default pipelines
-    @Element(required = false)
-    private CvPipeline heapPipeline;
+    private CvPipeline upsideUpPipeline = createDefaultPipeline();
+    @Attribute(required = false)
+    private String useUpsideUpPielineFrom = new String(); // if this string is empty, we use our own pipeline. 
 
     @Element(required = false)
-    private CvPipeline upcamPipeline;
+    private CvPipeline upsideDownPipeline = createDefaultPipeline();
+    @Attribute(required = false)
+    private String useUpsideDownPielineFrom = new String(); // if this string is empty, we use our own pipeline. 
 
     @Element(required = false)
-    private CvPipeline separationAreaPipeline;
+    private CvPipeline anythingElsePipeline = createDefaultPipeline();
+    @Attribute(required = false)
+    private String useAnythingElsePielineFrom = new String(); // if this string is empty, we use our own pipeline. 
 
     @Element(required = false)
-    private CvPipeline flipAreaPipeline;
+    private CvPipeline sideViewPipeline = createDefaultPipeline();
+    @Attribute(required = false)
+    private String useSideViewPipelineFrom = new String(); // if this string is empty, we use our own pipeline. 
+  
+   
 
 
     
@@ -199,32 +201,36 @@ public class HeapFeeder extends ReferenceFeeder {
      * For simplicity, on the way from the up-camera to the separation area, the chip flip area
      * and the pickLocation there must not be any Box underneath. 
      */
-    private List<Location> heapToUpcamWayPoints; // TODO 4: implement in GUI
+    private List<Location> heapToUpcamWayPoints; // TODO 4: use this and implement in GUI or make it very intelligent. 
     // NOTE: for the prototype, we use a direct path until to the right edge of box tray Nr 1.   
 
     /**
-     * The separationDropLocation is a fixed location shared by all feeders of this type. 
+     * The dropBoxLocation is a fixed location shared by all feeders of this type. 
+     * 
+     * It is the center, top point of the dropbox. 
      * 
      * After picking up the parts from the heap, perhaps multiple parts are on 
-     * the nozzle. This is detected by the up-camera. In this case, the parts
+     * the nozzle. 
+     * For now, every time the parts are dropped here (for separation). 
+     * The DropBox has a flat area of 15x15mm, small enough that the camera can 
+     * analyze it for parts. 
+
+     * TODO 5: This is detected by the up-camera. Only in this case, the parts
      * are dropped on the separationArea. 
      * 
-     * The Z value is the height, from where the parts are dropped from. 
      * 
-     * @see separationPickupArea
      */
-    static private Location separationDropLocation;
-    
+    static private Location dropBoxLocation = new Location(LengthUnit.Millimeters, 401.300, 136.200, -23.0, 0.0); // TODO 4: dropBoxLocation attribute
+
     
     /**
-     * The separationPickupArea is a fixed location shared by all feeders of this type. 
+     * The dropBoxPlaneLocation is a fixed location shared by all feeders of this type. 
      * 
-     * It is the location, where the down-camera looks for the dropped parts after 
-     * separation. 
-     * 
-     * @see separationDropLocation
+     * It is the center of the flat area of the DropBox. It is used for the built in 
+     * AdvancedLoosePartFeeder, which is  responsible for picking the parts up again. 
      */
-    static private Location separationPickupArea = separationDropLocation;
+   static private Location dropBoxPlaneLocation = new Location(LengthUnit.Millimeters, 401.300, 136.200, -23.0, 0.0); // TODO 4: dropBoxLocation attribute
+
     
     
     /**
@@ -249,12 +255,18 @@ public class HeapFeeder extends ReferenceFeeder {
      */
     static private Location chipFlipPickupArea;
     
+    
+    
+    
+    // @Element(required=false) TODO 2: @Element for side view location
+    static private Location sideViewLocation = new Location(LengthUnit.Millimeters, 0,0,0,0); // TODO 0: side view location 
+    
     /**
      * The pickLocation is a fixed location for this feeder object. 
      * The part is placed there by the feeder when all necessary operations 
      * have been passed before. 
      */
-    private Location pickLocation;
+    private Location pickLocation = null;
 
     
     // constructor
@@ -268,6 +280,8 @@ public class HeapFeeder extends ReferenceFeeder {
 	    	globalBoxTrayLocations.add(3, new Location(LengthUnit.Millimeters, 266+1*34,168,-7,0));
 	    	globalBoxTrayLocations.add(4, new Location(LengthUnit.Millimeters, 266+0*34,168,-7,0));
     	}
+    	
+    	Logger.trace("Constructor: this.name = " + name);
     }
     
 
@@ -335,34 +349,83 @@ public class HeapFeeder extends ReferenceFeeder {
     	
         pickNewPart(camera, nozzle);
         
-        //moveToDropLocation(camera, nozzle);
+        moveToDropLocation(camera, nozzle);
+        
+        // TODO 0: use advanced loose parts feeder
+        // TOOD 0: use chip flipper
     }
     
     private void moveToDropLocation(Camera camera, Nozzle nozzle) throws Exception {
     	nozzle.moveToSafeZ();
+    	double saveZ = 0;
+    	// TODO 3: double saveZ = nozzle.getLocation().getZ()
     	
-    	 	
-    	Location nozLoc = location.derive(0.0, 0.0, -0.01, 0.0);
+    	Location nozLoc = location.derive(null, null, saveZ, null); // TODO 5: we assume here a save-z of 0
     	
     	nozzle.moveTo(nozLoc);
     	
-    	double dX=0;
+    	double dX = 0;
     	double dY=0;
     	double dZ=0;
     	
-    	if(boxColumn == 0) { // exit left
-    		dX = -boxTrayInnerSizeX.getValue()/2 - boxTrayId - corridorWidth.getValue()/2;
+    	// for absolute coordinates we use Location.derive, which ignores a null-Value
+    	Double x;
+    	Double y;
+    	Double z;
+    	
+    	if(boxColumn() == 0) { // exit left
+    		dX = -boxTrayInnerSizeX.getValue()/2 - boxTrayWallThickness.getValue() - corridorWidth.getValue()/2;
     	}else{ // exit right
-    		dX = -boxTrayInnerSizeX.getValue()/2 - boxTrayId - corridorWidth.getValue()/2;
+    		dX = +boxTrayInnerSizeX.getValue()/2 + boxTrayWallThickness.getValue() + corridorWidth.getValue()/2;
     	}
-		dY = 0;
-		dZ = 0;
+		dY = 0; dZ = 0; // dont change
 		nozLoc = nozLoc.add(new Location(LengthUnit.Millimeters, dX,dY,dZ,0));
 		nozzle.moveTo(nozLoc);
 		
+		// * move down into the corridor
+		x = null; y = null;
+		z = location.getZ() -5; // TODO 5: we assume here a save-z of 0
+		nozLoc = nozLoc.derive(x, y, z, null);
+		nozzle.moveTo(nozLoc);
+		
+		
+		// * move towards front (near the origin of the current BoxTray) in the y-corridor
 		dX=0;
-		dY= -boxRow*(boxTrayInnerSizeY.getValue() + boxTrayWallThickness.getValue()) 
-				-boxTrayInnerSizeY.getValue()/2 -boxTrayWallThickness.getValue() - corridorWidth.getValue()/2;
+		dY= -boxRow()*(boxTrayInnerSizeY.getValue() + boxTrayWallThickness.getValue()) 
+				-boxTrayInnerSizeY.getValue()/2 -boxTrayWallThickness.getValue() 
+				-corridorWidth.getValue()/2;
+		dZ=0;
+		nozLoc = nozLoc.add(new Location(LengthUnit.Millimeters, dX,dY,dZ,0));
+		nozzle.moveTo(nozLoc);
+		
+		// * move to the right to the exit of the x-corridor
+		x = globalBoxTrayLocations.get(1).getX() + 
+				(3*boxTrayWallThickness.getValue() + 2*boxTrayInnerSizeX.getValue() + corridorWidth.getValue());
+		y=null; z=null; // dont change
+		nozLoc = nozLoc.derive(x, y, z, null);
+		nozzle.moveTo(nozLoc);
+		
+		
+		// * move to final dropbox position
+		nozzle.moveToSafeZ(); // move up from corridor before moving above drop location
+		nozLoc = dropBoxLocation.derive(null, null, saveZ, null); // get drop box location at saveZ
+		dX=-9;
+		dY=+9;
+		dZ=0;
+		nozLoc = nozLoc.add(new Location(LengthUnit.Millimeters, dX,dY,dZ,0));
+		nozzle.moveTo(nozLoc); // move above drop location at saveZ
+		
+		x=null; y=null;
+		z = dropBoxLocation.getZ();
+		nozLoc = nozLoc.derive(x, y, z, null);
+		nozzle.moveTo(nozLoc); // go down to drop height. 
+		
+
+		// * drop the part(s)
+		valveOff(nozzle);
+		
+		// dummy pick location for testing with a "real" pnp-job
+		pickLocation = nozzle.getLocation(); // TODO 0: remove debug code
     }
     
     /**
@@ -472,9 +535,7 @@ public class HeapFeeder extends ReferenceFeeder {
 			throw new Exception("Feeder " + getName() + ": Could not catch a part from the heap. Pressure limit not reached.");
 		}
 		
-		// * follow waypoints to up-camera
-		
-		pickLocation = new Location(LengthUnit.Millimeters, location.getX(), location.getY(), 0, 0); // TODO 4: get save-z from config
+		pickLocation = null;
     }
     
     private void pumpOn() throws Exception {
@@ -544,36 +605,35 @@ public class HeapFeeder extends ReferenceFeeder {
 	}
 	public void setSubBoxName(String subBoxName) {
 		this.subBoxName = subBoxName;
-		autoUpdateLocation();
 	}
 	
-	private int boxRow = 0;
-	private int boxColumn = 0;
-	
-	private void autoUpdateLocation() {
+	public void setDefaultLocation(int boxTrayId, String subBoxName) {
+		this.boxTrayId = boxTrayId;
+		this.subBoxName = subBoxName;
+		
 		// TODO 4: add button for update globalBoxTrayLocation.
-		//if(subBoxName.compareTo("A1")!=0) {
-			char rowChar = subBoxName.charAt(1);
-			char columnChar = subBoxName.charAt(0);
-			int row = rowChar - '1'; // starting from zero
-			int col = columnChar - 'A'; // starting from zero
 
-			// TODO 2: take rotaion of globalBoxTrayLocation into account!
-			double dX = boxTrayWallThickness.getValue() + 
-					boxTrayInnerSizeX.getValue()/2 + 
-					col*(boxTrayInnerSizeX.getValue() + boxTrayWallThickness.getValue());
-			double dY = boxTrayWallThickness.getValue() + 
-					boxTrayInnerSizeY.getValue()/2 + 
-					row*(boxTrayInnerSizeY.getValue() + boxTrayWallThickness.getValue());
+		// TODO 2: take rotaion of globalBoxTrayLocation into account!
+		double dX = boxTrayWallThickness.getValue() + 
+				boxTrayInnerSizeX.getValue()/2 + 
+				boxColumn()*(boxTrayInnerSizeX.getValue() + boxTrayWallThickness.getValue());
+		double dY = boxTrayWallThickness.getValue() + 
+				boxTrayInnerSizeY.getValue()/2 + 
+				boxRow()*(boxTrayInnerSizeY.getValue() + boxTrayWallThickness.getValue());
 
-			location = globalBoxTrayLocations.get(boxTrayId).add(new Location(LengthUnit.Millimeters, dX,dY,0,0));
-			pickLocation = null; // reset picklocation
-			
-			Logger.info("Auto Update Location to " + location.toString());
-			
-			boxRow = row;
-			boxColumn = col;
-		//}
+		location = globalBoxTrayLocations.get(boxTrayId).add(new Location(LengthUnit.Millimeters, dX,dY,0,0));
+		pickLocation = null; // reset picklocation
+		
+		Logger.info("Set Default Location to " + location.toString());
+	}
+	
+	private int boxRow() {
+		char rowChar = subBoxName.charAt(1);
+		return rowChar - '1'; // starting from zero
+	}
+	private int boxColumn() {
+		char columnChar = subBoxName.charAt(0);
+		return columnChar - 'A'; // starting from zero		
 	}
 
 
@@ -583,7 +643,6 @@ public class HeapFeeder extends ReferenceFeeder {
 
 	public void setBoxTrayId(int boxTrayId) {
 		this.boxTrayId = boxTrayId;
-		autoUpdateLocation();
 	}
 
 
@@ -654,57 +713,167 @@ public class HeapFeeder extends ReferenceFeeder {
 		this.dwellOnZStep = dwellOnZStep;
 	}
 
-//	private Location getPickLocation(Camera camera, Nozzle nozzle) throws Exception {
-//        // Process the pipeline to extract RotatedRect results
-//        pipeline.setProperty("camera", camera);
-//        pipeline.setProperty("nozzle", nozzle);
-//        pipeline.setProperty("feeder", this);
-//        pipeline.process();
-//        // Grab the results
-//        List<RotatedRect> results = (List<RotatedRect>) pipeline.getResult("results").model;
-//        if (results.isEmpty()) {
-//            throw new Exception("Feeder " + getName() + ": No parts found.");
-//        }
-//        // Find the closest result
-//        results.sort((a, b) -> {
-//            Double da = VisionUtils.getPixelLocation(camera, a.center.x, a.center.y)
-//                    .getLinearDistanceTo(camera.getLocation());
-//            Double db = VisionUtils.getPixelLocation(camera, b.center.x, b.center.y)
-//                    .getLinearDistanceTo(camera.getLocation());
-//            return da.compareTo(db);
-//        });
-//        RotatedRect result = results.get(0);
-//        Location location = VisionUtils.getPixelLocation(camera, result.center.x, result.center.y);
-//        // Get the result's Location
-//        // Update the location with the result's rotation
-//        location = location.derive(null, null, null, -(result.angle + getLocation().getRotation()));
-//        // Update the location with the correct Z, which is the configured Location's Z
-//        // plus the part height.
-//        location =
-//                location.derive(null, null,
-//                        this.location.convertToUnits(location.getUnits()).getZ()
-//                                + part.getHeight().convertToUnits(location.getUnits()).getValue(),
-//                        null);
-//        MainFrame.get().getCameraViews().getCameraView(camera)
-//                .showFilteredImage(OpenCvUtils.toBufferedImage(pipeline.getWorkingImage()), 250);
-//        return location;
-//    }
+	private Location getNextUpsideUpLocationInDropbox(Camera camera, Nozzle nozzle) throws Exception {
+		
+		camera.moveToSafeZ();
+		camera.moveTo(dropBoxLocation);
+		
+		CvPipeline pipeline = null;
+		if(useUpsideUpPielineFrom.isEmpty()) {
+			pipeline = upsideUpPipeline;
+		}else {
+			HeapFeeder otherFeeder = (HeapFeeder) getMachine().getFeederByName(useUpsideUpPielineFrom);
+			if(otherFeeder == null) {
+				throw new Exception("Error: referred Feeder for Upside Up cannot be accessed");
+			}else {
+				pipeline = otherFeeder.upsideUpPipeline;
+			}
+		}
+		
+		return getNextLocationFromCvPipeline(camera, nozzle, pipeline);
+	}
+		
+	private Location getNextUpsideDownLocationInDropbox(Camera camera, Nozzle nozzle) throws Exception {
+		
+		camera.moveToSafeZ();
+		camera.moveTo(dropBoxLocation);
+		
+		CvPipeline pipeline = null;
+		if(useUpsideDownPielineFrom.isEmpty()) {
+			pipeline = upsideDownPipeline;
+		}else {
+			HeapFeeder otherFeeder = (HeapFeeder) getMachine().getFeederByName(useUpsideDownPielineFrom);
+			if(otherFeeder == null) {
+				throw new Exception("Error: referred Feeder for Upside Up cannot be accessed");
+			}else {
+				pipeline = otherFeeder.upsideDownPipeline;
+			}
+		}
+		
+		return getNextLocationFromCvPipeline(camera, nozzle, pipeline);
+	}
+		
+	private Location getNextAnythingElseLocationInDropbox(Camera camera, Nozzle nozzle) throws Exception {
+		
+		camera.moveToSafeZ();
+		camera.moveTo(dropBoxLocation);
+		
+		CvPipeline pipeline = null;
+		if(useUpsideUpPielineFrom.isEmpty()) {
+			pipeline = anythingElsePipeline;
+		}else {
+			HeapFeeder otherFeeder = (HeapFeeder) getMachine().getFeederByName(useAnythingElsePielineFrom);
+			if(otherFeeder == null) {
+				throw new Exception("Error: referred Feeder for Anything Else cannot be accessed");
+			}else {
+				pipeline = otherFeeder.anythingElsePipeline;
+			}
+		}
+		
+		return getNextLocationFromCvPipeline(camera, nozzle, pipeline);
+	}
+		
+	private boolean isPartInSideViewUpsideDown(Camera camera, Nozzle nozzle) throws Exception {
+		
+		camera.moveToSafeZ();
+		camera.moveTo(dropBoxLocation);
+		
+		CvPipeline pipeline = null;
+		if(useUpsideUpPielineFrom.isEmpty()) {
+			pipeline = anythingElsePipeline;
+		}else {
+			HeapFeeder otherFeeder = (HeapFeeder) getMachine().getFeederByName(useAnythingElsePielineFrom);
+			if(otherFeeder == null) {
+				throw new Exception("Error: referred Feeder for Anything Else cannot be accessed");
+			}else {
+				pipeline = otherFeeder.anythingElsePipeline;
+			}
+		}
+		
+		// Process the pipeline to extract RotatedRect results
+        pipeline.setProperty("camera", camera);
+        pipeline.setProperty("nozzle", nozzle);
+        pipeline.setProperty("feeder", this);
+        pipeline.process();
+        
+        // Grab the results
+        List<RotatedRect> results = (List<RotatedRect>) pipeline.getResult("results").model;
+   
+        if (results.isEmpty()) {
+            throw new Exception("Feeder " + getName() + ": No pins in side view found, missing part?");
+        }
 
-    public CvPipeline getPipeline() {
-        return pipeline;
+        int yLimit_px = 240; // one pixel dead zone
+        
+        // Count results above and below yLimit
+        int countAbove = 0;
+        int countBelow = 0;
+        for(RotatedRect rect: results) {
+        	if(rect.center.y > yLimit_px) {
+        		countAbove++;
+        	}
+        	if(rect.center.y < yLimit_px) {
+        		countBelow++;
+        	}
+        }
+        
+        if (countAbove == 0 && countBelow == 0) {
+            throw new Exception("Feeder " + getName() + ": No pins in upper or lower zone found");
+        }
+        
+        if (countAbove > 0 && countBelow > 0) {
+        	throw new Exception("Feeder " + getName() + ": Found pins in upper and lower zone - indifferent result");
+        }
+
+        if (countAbove > 0) {
+        	return true;
+        }
+        
+        if (countBelow > 0) {
+        	return false;
+        }
+        
+        throw new Exception("Feeder " + getName() + ": Unhandled case in side view analysis.");
+	}
+		
+	private Location getNextLocationFromCvPipeline(Camera camera, Nozzle nozzle, CvPipeline pipeline) throws Exception{
+		
+		// Process the pipeline to extract RotatedRect results
+        pipeline.setProperty("camera", camera);
+        pipeline.setProperty("nozzle", nozzle);
+        pipeline.setProperty("feeder", this);
+        pipeline.process();
+        
+        // Grab the results
+        List<RotatedRect> results = (List<RotatedRect>) pipeline.getResult("results").model;
+        if (results.isEmpty()) {
+            return null;
+        }
+        // Find the closest result
+        results.sort((a, b) -> {
+            Double da = VisionUtils.getPixelLocation(camera, a.center.x, a.center.y)
+                    .getLinearDistanceTo(camera.getLocation());
+            Double db = VisionUtils.getPixelLocation(camera, b.center.x, b.center.y)
+                    .getLinearDistanceTo(camera.getLocation());
+            return da.compareTo(db);
+        });
+        RotatedRect result = results.get(0);
+        Location location = VisionUtils.getPixelLocation(camera, result.center.x, result.center.y);
+        // Get the result's Location
+        // Update the location with the result's rotation
+        location = location.derive(null, null, null, -(result.angle + getLocation().getRotation()));
+        // Update the location with the correct Z, which is the configured Location's Z
+        // plus the part height.
+        location =
+                location.derive(null, null,
+                        this.location.convertToUnits(location.getUnits()).getZ()
+                                + part.getHeight().convertToUnits(location.getUnits()).getValue(),
+                        null);
+        MainFrame.get().getCameraViews().getCameraView(camera)
+                .showFilteredImage(OpenCvUtils.toBufferedImage(pipeline.getWorkingImage()), 250);
+        return location;
     }
 
-    public void resetPipeline() {
-        pipeline = createDefaultPipeline();
-    }
-
-    public CvPipeline getTrainingPipeline() {
-        return trainingPipeline;
-    }
-
-    public void resetTrainingPipeline() {
-        trainingPipeline = createDefaultTrainingPipeline();
-    }
 
 	@Override
 	public Wizard getConfigurationWizard() {
@@ -734,7 +903,86 @@ public class HeapFeeder extends ReferenceFeeder {
 	}
 
 	
-    public static CvPipeline createDefaultPipeline() {
+    public CvPipeline getUpsideUpPipeline() {
+		return upsideUpPipeline;
+	}
+
+
+	public void setUpsideUpPipeline(CvPipeline upsideUpPipeline) {
+		this.upsideUpPipeline = upsideUpPipeline;
+	}
+
+
+	public String getUseUpsideUpPielineFrom() {
+		return useUpsideUpPielineFrom;
+	}
+
+
+	public void setUseUpsideUpPielineFrom(String useUpsideUpPielineFrom) {
+		this.useUpsideUpPielineFrom = useUpsideUpPielineFrom;
+	}
+
+
+	public CvPipeline getUpsideDownPipeline() {
+		return upsideDownPipeline;
+	}
+
+
+	public void setUpsideDownPipeline(CvPipeline upsideDownPipeline) {
+		this.upsideDownPipeline = upsideDownPipeline;
+	}
+
+
+	public String getUseUpsideDownPielineFrom() {
+		return useUpsideDownPielineFrom;
+	}
+
+
+	public void setUseUpsideDownPielineFrom(String useUpsideDownPielineFrom) {
+		this.useUpsideDownPielineFrom = useUpsideDownPielineFrom;
+	}
+
+	public CvPipeline getAnythingElsePipeline() {
+		return anythingElsePipeline;
+	}
+
+
+	public void setAnythingElesePipeline(CvPipeline anythingElesePipeline) {
+		this.anythingElsePipeline = anythingElesePipeline;
+	}
+
+
+	public String getUseAnythingElsePielineFrom() {
+		return useAnythingElsePielineFrom;
+	}
+
+
+	public void setUseAnythingElsePielineFrom(String useAnythingElsePielineFrom) {
+		this.useAnythingElsePielineFrom = useAnythingElsePielineFrom;
+	}
+
+
+	public CvPipeline getSideViewPipeline() {
+		return sideViewPipeline;
+	}
+
+
+	public void setSideViewPipeline(CvPipeline sideViewPipeline) {
+		this.sideViewPipeline = sideViewPipeline;
+	}
+
+
+	public String getUseSideViewPipelineFrom() {
+		return useSideViewPipelineFrom;
+	}
+
+
+	public void setUseSideViewPipelineFrom(String useSideViewPipelineFrom) {
+		this.useSideViewPipelineFrom = useSideViewPipelineFrom;
+	}
+
+
+	public static CvPipeline createDefaultPipeline() {
         try {
             String xml = IOUtils.toString(HeapFeeder.class
                     .getResource("HeapFeeder-DefaultPipeline.xml"));
@@ -768,5 +1016,27 @@ public class HeapFeeder extends ReferenceFeeder {
         this.location = location;
         firePropertyChange("location", oldValue, location);
     }
-
+    
+    
+    public void moveToDropBox() {
+    	try
+    	{
+        	Camera cam = getMachine().getDefaultHead().getDefaultCamera();
+        	cam.moveToSafeZ();
+        	cam.moveTo(dropBoxLocation);
+    	}catch(Exception e) {
+    		// TODO 3: what to do about exceptions within the wizard?
+    	}
+    }
+    
+    public void moveToSideView() {
+    	try
+    	{
+        	Camera cam = getMachine().getDefaultHead().getDefaultCamera();
+        	cam.moveToSafeZ();
+        	cam.moveTo(sideViewLocation);
+    	}catch(Exception e) {
+    		// TODO 3: what to do about exceptions within the wizard?
+    	}
+    }
 }
