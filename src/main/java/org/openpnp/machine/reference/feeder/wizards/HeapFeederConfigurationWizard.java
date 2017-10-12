@@ -27,6 +27,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -71,7 +72,29 @@ public class HeapFeederConfigurationWizard
 	JTextField tfLastCatchZDepth;
 	JTextField tfZStepOnPickup;
 	JTextField tfDwellOnZStep;
+	
+	JTextField tfSubBoxName; // L or R
+	JTextField tfboxTrayId; // L or R
+	
+	JButton bSetDefaultLocation; // use location based on the BoxTrayLocation and the box name
 
+	
+	JButton bEditUpsideUp;
+	JTextField tfUseUpsideUpPipelineFrom;
+	
+	JCheckBox cbEnableUpsideDown;
+	JButton bEditUpsideDown;
+	JTextField tfUseUpsideDownPipelineFrom;
+	
+	JButton bEditAnythingElse;
+	JTextField tfUseAnythingElsePipelineFrom;
+	
+	JCheckBox cbEnableSideView;
+	JButton bEditSideView;
+	JTextField tfUseSideViewPipelineFrom;
+	
+	JButton bMoveToDropBox;
+	JButton bMoveToSideView;
 	
 
     public HeapFeederConfigurationWizard(HeapFeeder feeder) {
@@ -93,8 +116,16 @@ public class HeapFeederConfigurationWizard
         						FormSpecs.RELATED_GAP_COLSPEC,
         						FormSpecs.DEFAULT_COLSPEC,
         						FormSpecs.RELATED_GAP_COLSPEC,
+        						FormSpecs.DEFAULT_COLSPEC,
+        						FormSpecs.RELATED_GAP_COLSPEC,
         						FormSpecs.DEFAULT_COLSPEC,},
         				new RowSpec[] {
+           						FormSpecs.RELATED_GAP_ROWSPEC,
+        						FormSpecs.DEFAULT_ROWSPEC,
+           						FormSpecs.RELATED_GAP_ROWSPEC,
+        						FormSpecs.DEFAULT_ROWSPEC,
+        						FormSpecs.RELATED_GAP_ROWSPEC,
+        						FormSpecs.DEFAULT_ROWSPEC,
         						FormSpecs.RELATED_GAP_ROWSPEC,
         						FormSpecs.DEFAULT_ROWSPEC,
         						FormSpecs.RELATED_GAP_ROWSPEC,
@@ -111,91 +142,137 @@ public class HeapFeederConfigurationWizard
         						FormSpecs.DEFAULT_ROWSPEC,
         						FormSpecs.RELATED_GAP_ROWSPEC,
         						FormSpecs.DEFAULT_ROWSPEC,}));
-        
+        int row = 1;
+        int col = 1;
         {
-	        JLabel lblPumpName = new JLabel("Pump Name");
-	        devPanel.add(lblPumpName, "2, 2, right, default");
+	        JLabel lbl = new JLabel("Box Tray ID");
+	        devPanel.add(lbl, "2, "+ Integer.toString(row*2)+", right, default");
 	
-	        tfPumpName = new JTextField();
-	        tfPumpName.setText("Pumpe");
-	        devPanel.add(tfPumpName, "4, 2, fill, default");
-	        tfPumpName.setColumns(3);
+	        JTextField tf = tfboxTrayId = new JTextField();
+	        tf.setText("1");
+	        devPanel.add(tf, "4, "+ Integer.toString(row*2)+", fill, default");
+	        tf.setColumns(3);
+	        
+	        row++;
         }
         
         {
-	        JLabel lbl = new JLabel("Valve Name");
-	        devPanel.add(lbl, "2, 4, right, default");
+	        JLabel lbl = new JLabel("Sub Box");
+	        devPanel.add(lbl, "2, "+ Integer.toString(row*2)+", right, default");
 	
-	        tfValveName = new JTextField();
-	        tfValveName.setText("Ventil");
-	        devPanel.add(tfValveName, "4, 4, fill, default");
-	        tfValveName.setColumns(3);
+	        JTextField tf = tfSubBoxName = new JTextField();
+	        tf.setText("A1");
+	        devPanel.add(tf, "4, "+ Integer.toString(row*2)+", fill, default");
+	        tf.setColumns(3);
+	        	        
+	        row++;
         }
         
-     
         {
-	        JLabel lbl = new JLabel("Pressure Sensor Name");
-	        devPanel.add(lbl, "2, 6, right, default");
-	
-	        tfPressureSensorName = new JTextField();
-	        tfPressureSensorName.setText("Drucksensor");
-	        devPanel.add(tfPressureSensorName, "4, 6, fill, default");
-	        tfPressureSensorName.setColumns(3);
+	        JButton b = bSetDefaultLocation = new JButton("Set Default Location");
+	        b.addActionListener(new BtnSetDefaultLocationActionListener());
+	        devPanel.add(b, "4, " + Integer.toString(row*2) + ", fill, default");
+	        
+	        row++;
         }
-        
+      
+// TODO 5: reenable these fields, or get the values from somewhere else
+//        {
+//	        JLabel lbl = new JLabel("Pump Name");
+//	        devPanel.add(lbl, "2, "+ Integer.toString(row*2)+", right, default");
+//	
+//	        JTextField tf = tfPumpName = new JTextField();
+//	        tf.setText("Pumpe");
+//	        devPanel.add(tf, "4, "+ Integer.toString(row*2)+", fill, default");
+//	        tf.setColumns(3);
+//	        
+//	        row++;
+//        }
+//        
+//        {
+//	        JLabel lbl = new JLabel("Valve Name");
+//	        devPanel.add(lbl, "2, "+ Integer.toString(row*2)+", right, default");
+//	
+//	        JTextField tf = tfValveName = new JTextField();
+//	        tf.setText("Ventil");
+//	        devPanel.add(tf, "4, "+ Integer.toString(row*2)+", fill, default");
+//	        tf.setColumns(3);
+//	        
+//	        row++;
+//
+//        }
+//        
+//     
+//        {
+//	        JLabel lbl = new JLabel("Pressure Sensor Name");
+//	        devPanel.add(lbl, "2, "+ Integer.toString(row*2)+", right, default");
+//	
+//	        JTextField tf = tfPressureSensorName = new JTextField();
+//	        devPanel.add(tf, "4, "+ Integer.toString(row*2)+", fill, default");
+//	        tf.setColumns(3);
+//	        
+//	        row++;
+//
+//        }
+//        
      
         {
 	        JLabel lbl = new JLabel("Pressure Delta");
-	        devPanel.add(lbl, "2, 8, right, default");
+	        devPanel.add(lbl, "2, "+ Integer.toString(row*2)+", right, default");
 	
-	        tfPressureDelta = new JTextField();
-	        tfPressureDelta.setText("5.00");
-	        devPanel.add(tfPressureDelta, "4, 8, fill, default");
-	        tfPressureDelta.setColumns(3);
+	        JTextField tf = tfPressureDelta = new JTextField();
+	        devPanel.add(tf, "4, "+ Integer.toString(row*2)+", fill, default");
+	        tf.setColumns(3);
+	        
+	        row++;
         }
         
      
         {
 	        JLabel lbl = new JLabel("max. Z-travel");
-	        devPanel.add(lbl, "2, 10, right, default");
-	
-	        tfMaxZTravel = new JTextField();
-	        tfMaxZTravel.setText("10.0");
-	        devPanel.add(tfMaxZTravel, "4, 10, fill, default");
-	        tfMaxZTravel.setColumns(3);
+	        devPanel.add(lbl, "2, "+ Integer.toString(row*2)+", right, default");
+
+	        JTextField tf = tfMaxZTravel = new JTextField();
+	        devPanel.add(tf, "4, "+ Integer.toString(row*2)+", fill, default");
+	        tf.setColumns(3);
+	        
+	        row++;
         }
         
      
         {
 	        JLabel lbl = new JLabel("Last Catch Z-Depth");
-	        devPanel.add(lbl, "2, 12, right, default");
-	
-	        tfLastCatchZDepth = new JTextField();
-	        tfLastCatchZDepth.setText("0.0");
-	        devPanel.add(tfLastCatchZDepth, "4, 12, fill, default");
-	        tfLastCatchZDepth.setColumns(3);
+	        devPanel.add(lbl, "2, "+ Integer.toString(row*2)+", right, default");
+	        
+	        JTextField tf = tfLastCatchZDepth = new JTextField();
+	        devPanel.add(tf, "4, "+ Integer.toString(row*2)+", fill, default");
+	        tf.setColumns(3);
+	        
+	        row++;
         }
         
      
         {
 	        JLabel lbl = new JLabel("Z step on pickup");
-	        devPanel.add(lbl, "2, 14, right, default");
-	
-	        tfZStepOnPickup = new JTextField();
-	        tfZStepOnPickup.setText("0.1");
-	        devPanel.add(tfZStepOnPickup, "4, 14, fill, default");
-	        tfZStepOnPickup.setColumns(3);
+	        devPanel.add(lbl, "2, "+ Integer.toString(row*2)+", right, default");
+	        
+	        JTextField tf = tfZStepOnPickup = new JTextField();
+	        devPanel.add(tf, "4, "+ Integer.toString(row*2)+", fill, default");
+	        tf.setColumns(3);
+	        
+	        row++;
         }
         
      
         {
 	        JLabel lbl = new JLabel("dwell after Z-step [ms]");
-	        devPanel.add(lbl, "2, 16, right, default");
-	
-	        tfDwellOnZStep = new JTextField();
-	        tfDwellOnZStep.setText("100");
-	        devPanel.add(tfDwellOnZStep, "4, 16, fill, default");
-	        tfDwellOnZStep.setColumns(3);
+	        devPanel.add(lbl, "2, "+ Integer.toString(row*2)+", right, default");
+	        
+	        JTextField tf = tfDwellOnZStep = new JTextField();
+	        devPanel.add(tf, "4, "+ Integer.toString(row*2)+", fill, default");
+	        tf.setColumns(3);
+	        
+	        row++;
         }
         
      
@@ -205,43 +282,149 @@ public class HeapFeederConfigurationWizard
         
 
         JPanel panel = new JPanel();
-        panel.setBorder(new TitledBorder(null, "Vision", TitledBorder.LEADING, TitledBorder.TOP,
+        panel.setBorder(new TitledBorder(null, "Vision Pipelines", TitledBorder.LEADING, TitledBorder.TOP,
                 null, null));
         contentPanel.add(panel);
         panel.setLayout(new FormLayout(new ColumnSpec[] {
                 FormSpecs.RELATED_GAP_COLSPEC,
-                FormSpecs.DEFAULT_COLSPEC,
+                FormSpecs.DEFAULT_COLSPEC, // Pipeline Name
                 FormSpecs.RELATED_GAP_COLSPEC,
-                FormSpecs.DEFAULT_COLSPEC,
+                FormSpecs.DEFAULT_COLSPEC, // Enabled Checkbox
                 FormSpecs.RELATED_GAP_COLSPEC,
-                FormSpecs.DEFAULT_COLSPEC,},
+                FormSpecs.DEFAULT_COLSPEC, // Edit Button
+                FormSpecs.RELATED_GAP_COLSPEC,
+                FormSpecs.DEFAULT_COLSPEC, // Use From Label
+                FormSpecs.RELATED_GAP_COLSPEC,
+                FormSpecs.DEFAULT_COLSPEC, // Text Field: use from...
+                FormSpecs.RELATED_GAP_COLSPEC,
+                FormSpecs.DEFAULT_COLSPEC, // Text Field: use from...
+                }, 
             new RowSpec[] {
-                FormSpecs.RELATED_GAP_ROWSPEC,
-                FormSpecs.DEFAULT_ROWSPEC,
-                FormSpecs.RELATED_GAP_ROWSPEC,
-                FormSpecs.DEFAULT_ROWSPEC,}));
+                    FormSpecs.RELATED_GAP_ROWSPEC,
+                    FormSpecs.DEFAULT_ROWSPEC, // Table Headers
+                    FormSpecs.RELATED_GAP_ROWSPEC,
+                    FormSpecs.DEFAULT_ROWSPEC, // Upside Up
+                    FormSpecs.RELATED_GAP_ROWSPEC,
+                    FormSpecs.DEFAULT_ROWSPEC, // Upside Down
+                    FormSpecs.RELATED_GAP_ROWSPEC,
+                    FormSpecs.DEFAULT_ROWSPEC, // Anything Else
+	                FormSpecs.RELATED_GAP_ROWSPEC,
+	                FormSpecs.DEFAULT_ROWSPEC, // Side View
+	                FormSpecs.RELATED_GAP_ROWSPEC,
+	                FormSpecs.DEFAULT_ROWSPEC, // Move To Buttons
+	                })); 
 
-        JButton btnEditPipeline = new JButton("Edit");
-        btnEditPipeline.addActionListener(new BtnEditPipelineActionListener());
-        
-        JLabel lblFeedPipeline = new JLabel("Feed Pipeline");
-        panel.add(lblFeedPipeline, "2, 2");
-        panel.add(btnEditPipeline, "4, 2");
+        row = 1;
+        col = 1;
+        {
+        	col++;
+        	
+	        panel.add(new JLabel("Enabled"), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", center, default");
+	        col++;
+	        
+	        col++;
+	        
+	        panel.add(new JLabel("Get it from other HeapFeeder"), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", center, default");
+	        col++;
+	        
+        }
 
-        JButton btnResetPipeline = new JButton("Reset");
-        btnResetPipeline.addActionListener(new BtnResetPipelineActionListener());
-        panel.add(btnResetPipeline, "6, 2");
         
-        JLabel lblTrainingPipeline = new JLabel("Training Pipeline");
-        panel.add(lblTrainingPipeline, "2, 4");
+        row = 2;
+        col = 1;
+        {
+	        panel.add(new JLabel("Upside Up: "), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", right, default");
+	        col++;
+
+//	        panel.add(new JCheckBox("Enabled"), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", right, default");
+	        col++;
+
+	        panel.add(bEditUpsideUp = new JButton("Edit"), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", center, default");
+	        bEditUpsideUp.addActionListener(new BtnEditUpsideUpPipelineActionListener());
+	        col++;
+
+	        panel.add(tfUseUpsideUpPipelineFrom = new JTextField("NO_REFERRED_FEEDER"), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", fill, default");
+	        col++;
+        }
+
         
-        JButton btnEditTrainingPipeline = new JButton("Edit");
-        btnEditTrainingPipeline.addActionListener(new BtnEditTrainingPipelineActionListener());
-        panel.add(btnEditTrainingPipeline, "4, 4");
+        row = 3;
+        col = 1;
+        {
+	        panel.add(new JLabel("Upside Down:"), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", right, default");
+	        col++;
+
+	        panel.add(cbEnableUpsideDown = new JCheckBox("Enabled", true), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", left, default");
+	        col++;
+
+	        panel.add(bEditUpsideDown = new JButton("Edit"), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", center, default");
+	        bEditUpsideDown.addActionListener(new BtnEditUpsideDownPipelineActionListener());
+	        col++;
+
+	        panel.add(tfUseUpsideDownPipelineFrom = new JTextField(), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", fill, default");
+	        col++;
+	        
+        }
+    	
+        row = 4;
+        col = 1;
+        {
+	        panel.add(new JLabel("Anything Else: "), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", right, default");
+	        col++;
+
+//	        panel.add(new JCheckBox("Enabled", true), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", right, default");
+	        col++;
+
+	        panel.add(bEditAnythingElse = new JButton("Edit"), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", center, default");
+	        bEditAnythingElse.addActionListener(new BtnEditAnythingElsePipelineActionListener());
+	        col++;
+
+	        panel.add(tfUseAnythingElsePipelineFrom = new JTextField(), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", fill, default");
+	        col++;
+	        
+        }
+
         
-        JButton btnResetTrainingPipeline = new JButton("Reset");
-        btnResetTrainingPipeline.addActionListener(new BtnResetTrainingPipelineActionListener());
-        panel.add(btnResetTrainingPipeline, "6, 4");
+        row = 5;
+        col = 1;
+        {
+	        panel.add(new JLabel("Side View: "), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", right, default");
+	        col++;
+
+	        panel.add(cbEnableSideView = new JCheckBox("Enabled", false), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", left, default");
+	        col++;
+
+	        panel.add(bEditSideView = new JButton("Edit"), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", center, default");
+	        bEditSideView.addActionListener(new BtnEditSideViewPipelineActionListener());
+	        col++;
+
+	        panel.add(tfUseSideViewPipelineFrom = new JTextField(), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", fill, default");
+	        col++;
+	        
+	        row++;
+        }
+
+        
+        row = 6;
+        col = 1;
+        {
+	        panel.add(new JLabel("Camera: "), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", right, default");
+	        col++;
+
+	        panel.add(bMoveToDropBox = new JButton("Move to DropBox"), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", right, default");
+	        bMoveToDropBox.addActionListener(new BtnMoveToDropBoxActionListener());
+	        col++;
+
+	        panel.add(bMoveToSideView = new JButton("Move to Side View"), Integer.toString(col*2)+", "+ Integer.toString(row*2)+", right, default");
+	        bMoveToSideView.addActionListener(new BtnMoveToSideViewActionListener());
+	        col++;
+	        
+	        // TODO 4: add Button for set DropBox location
+	        // TODO 4: add Button for set Side View location
+	        row++;
+        }
+
+        
         
         JPanel warningPanel = new JPanel();
         FlowLayout flowLayout = (FlowLayout) warningPanel.getLayout();
@@ -264,7 +447,9 @@ public class HeapFeederConfigurationWizard
         DoubleConverter doubleConverter = new DoubleConverter(Configuration.get().getLengthDisplayFormat());
         
         // for reference see ReferenceTrayFeeder
-        addWrappedBinding(feeder, "pumpName", 			tfPumpName, 			"text");
+        addWrappedBinding(feeder, "boxTrayId", 			tfboxTrayId, 			"text", integerConverter);
+        addWrappedBinding(feeder, "subBoxName", 		tfSubBoxName, 			"text");
+    	addWrappedBinding(feeder, "pumpName", 			tfPumpName, 			"text");
         addWrappedBinding(feeder, "valveName", 			tfValveName, 			"text");
         addWrappedBinding(feeder, "pressureSensorName", tfPressureSensorName, 	"text");
         addWrappedBinding(feeder, "pressureDelta", 		tfPressureDelta, 		"text", doubleConverter);
@@ -272,9 +457,17 @@ public class HeapFeederConfigurationWizard
         addWrappedBinding(feeder, "lastCatchZDepth", 	tfLastCatchZDepth, 		"text", lengthConverter);
         addWrappedBinding(feeder, "zStepOnPickup", 		tfZStepOnPickup, 		"text", lengthConverter);
         addWrappedBinding(feeder, "dwellOnZStep", 		tfDwellOnZStep, 		"text", integerConverter);
+        
+        addWrappedBinding(feeder, "useUpsideUpPipelineFrom", 		tfUseUpsideUpPipelineFrom, 		"text");
+        addWrappedBinding(feeder, "useUpsideDownPipelineFrom", 		tfUseUpsideDownPipelineFrom, 	"text");
+        addWrappedBinding(feeder, "useAnythingElsePipelineFrom", 	tfUseAnythingElsePipelineFrom, 	"text");
+        addWrappedBinding(feeder, "useSideViewPipelineFrom", 		tfUseSideViewPipelineFrom, 		"text");
+        
+        addWrappedBinding(feeder, "upsideDownPipelineEnabledFlag", cbEnableUpsideDown, "checked");	
+        addWrappedBinding(feeder, "sideViewPipelineEnabledFlag", cbEnableSideView, "checked");	
 
 
-        // TODO 1: is this needed? (copy from trayfeeder)
+        // TODO 5: is this needed? (copy from trayfeeder)
 //        ComponentDecorators.decorateWithAutoSelect(tfPumpName);
 //        ComponentDecorators.decorateWithAutoSelectAndLengthConversion(textFieldOffsetsX);
 //        ComponentDecorators.decorateWithAutoSelectAndLengthConversion(textFieldOffsetsY);
@@ -284,66 +477,128 @@ public class HeapFeederConfigurationWizard
 //        ComponentDecorators.decorateWithAutoSelect(textFieldFeedCount);
     }
     
+    private void setDefaultLocation() {
+    	feeder.setDefaultLocation(Integer.parseInt(tfboxTrayId.getText()), tfSubBoxName.getText());
+    }
     
+
     
-    private void editPipeline() throws Exception {
-        CvPipeline pipeline = feeder.getPipeline();
-        pipeline.setProperty("camera", Configuration.get().getMachine().getDefaultHead().getDefaultCamera());
+    private void editUpsideUpPipeline() throws Exception {
+        CvPipeline pipeline = feeder.getUpsideUpPipeline();
+        pipeline.setProperty("camera", Configuration.get().getMachine().getDefaultHead().getDefaultCamera()); // TODO 5: derive camera from feeder
         pipeline.setProperty("feeder", feeder);
         CvPipelineEditor editor = new CvPipelineEditor(pipeline);
-        JDialog dialog = new JDialog(MainFrame.get(), feeder.getPart().getId() + " Pipeline");
+        JDialog dialog = new JDialog(MainFrame.get(), feeder.getPart().getId() + "UpsideUp Pipeline");
         dialog.getContentPane().setLayout(new BorderLayout());
         dialog.getContentPane().add(editor);
         dialog.setSize(1024, 768);
         dialog.setVisible(true);
     }
 
-    private void resetPipeline() {
-        feeder.resetPipeline();
-    }
-    
-    private void editTrainingPipeline() throws Exception {
-        CvPipeline pipeline = feeder.getTrainingPipeline();
-        pipeline.setProperty("camera", Configuration.get().getMachine().getDefaultHead().getDefaultCamera());
+    private void editUpsideDownPipeline() throws Exception {
+        CvPipeline pipeline = feeder.getUpsideDownPipeline();
+        pipeline.setProperty("camera", Configuration.get().getMachine().getDefaultHead().getDefaultCamera()); // TODO 5: derive camera from feeder
         pipeline.setProperty("feeder", feeder);
         CvPipelineEditor editor = new CvPipelineEditor(pipeline);
-        JDialog dialog = new JDialog(MainFrame.get(), feeder.getPart().getId() + " Training Pipeline");
+        JDialog dialog = new JDialog(MainFrame.get(), feeder.getPart().getId() + "UpsideDown Pipeline");
         dialog.getContentPane().setLayout(new BorderLayout());
         dialog.getContentPane().add(editor);
         dialog.setSize(1024, 768);
         dialog.setVisible(true);
     }
 
-    private void resetTrainingPipeline() {
-        feeder.resetTrainingPipeline();
+    private void editAnythingElsePipeline() throws Exception {
+        CvPipeline pipeline = feeder.getAnythingElsePipeline();
+        pipeline.setProperty("camera", Configuration.get().getMachine().getDefaultHead().getDefaultCamera()); // TODO 5: derive camera from feeder
+        pipeline.setProperty("feeder", feeder);
+        CvPipelineEditor editor = new CvPipelineEditor(pipeline);
+        JDialog dialog = new JDialog(MainFrame.get(), feeder.getPart().getId() + "Anything Else Pipeline");
+        dialog.getContentPane().setLayout(new BorderLayout());
+        dialog.getContentPane().add(editor);
+        dialog.setSize(1024, 768);
+        dialog.setVisible(true);
+    }
+
+    private void editSideViewPipeline() throws Exception {
+        CvPipeline pipeline = feeder.getSideViewPipeline();
+        pipeline.setProperty("camera", Configuration.get().getMachine().getDefaultHead().getDefaultCamera()); // TODO 5: derive camera from feeder
+        pipeline.setProperty("feeder", feeder);
+        CvPipelineEditor editor = new CvPipelineEditor(pipeline);
+        JDialog dialog = new JDialog(MainFrame.get(), feeder.getPart().getId() + "Side View Pipeline");
+        dialog.getContentPane().setLayout(new BorderLayout());
+        dialog.getContentPane().add(editor);
+        dialog.setSize(1024, 768);
+        dialog.setVisible(true);
+    }
+
+    
+    // TODO 4: what about this exceptions?
+    private void moveToDropBox() {
+    	feeder.moveToDropBox();
     }
     
-    private class BtnEditTrainingPipelineActionListener implements ActionListener {
+    private void moveToSideView(){
+    	feeder.moveToSideView();
+    }
+    
+    
+    
+    private class BtnSetDefaultLocationActionListener implements ActionListener {
         public void actionPerformed(ActionEvent e) {
             UiUtils.messageBoxOnException(() -> {
-                editTrainingPipeline();
+                setDefaultLocation();
             });
         }
     }
-    private class BtnResetTrainingPipelineActionListener implements ActionListener {
+
+    
+    private class BtnEditUpsideUpPipelineActionListener implements ActionListener {
         public void actionPerformed(ActionEvent e) {
             UiUtils.messageBoxOnException(() -> {
-                resetTrainingPipeline();
+                editUpsideUpPipeline();
             });
         }
     }
-    private class BtnEditPipelineActionListener implements ActionListener {
+    
+    private class BtnEditUpsideDownPipelineActionListener implements ActionListener {
         public void actionPerformed(ActionEvent e) {
             UiUtils.messageBoxOnException(() -> {
-                editPipeline();
+                editUpsideDownPipeline();
             });
         }
     }
-    private class BtnResetPipelineActionListener implements ActionListener {
+    
+    private class BtnEditAnythingElsePipelineActionListener implements ActionListener {
         public void actionPerformed(ActionEvent e) {
             UiUtils.messageBoxOnException(() -> {
-                resetPipeline();
+                editAnythingElsePipeline();
             });
         }
     }
-}
+    
+    private class BtnEditSideViewPipelineActionListener implements ActionListener {
+        public void actionPerformed(ActionEvent e) {
+            UiUtils.messageBoxOnException(() -> {
+                editSideViewPipeline();
+            });
+        }
+    }
+    
+    
+    private class BtnMoveToDropBoxActionListener implements ActionListener {
+        public void actionPerformed(ActionEvent e) {
+            UiUtils.messageBoxOnException(() -> {
+                moveToDropBox();
+            });
+        }
+    }
+    
+    
+    private class BtnMoveToSideViewActionListener implements ActionListener {
+        public void actionPerformed(ActionEvent e) {
+            UiUtils.messageBoxOnException(() -> {
+            	moveToSideView();
+            });
+        }
+    }    
+ }
