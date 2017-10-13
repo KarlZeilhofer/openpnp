@@ -377,6 +377,7 @@ public class HeapFeeder extends ReferenceFeeder {
         // TODO 0: clean up first!
     	
         int retries = 0;
+        pickLocation = null;
 		do {
 			checkForCleanNozzleTip(nozzle);
 			pickNewPartFromBox(nozzle);
@@ -404,17 +405,24 @@ public class HeapFeeder extends ReferenceFeeder {
     }
     
     private void checkForCleanNozzleTip(Nozzle nozzle) throws Exception {
-    	nozzle.moveToSafeZ();
     	pumpOn();
     	valveOn(nozzle);
+    	nozzle.moveToSafeZ();
     	Thread.sleep(300);
-    	double p0 = pressure(nozzle);
-    			
-    	ReferenceNozzleTip rn = (ReferenceNozzleTip) nozzle;
     	
-    	if(p0 > rn.getVacuumLevelPartOff()) {
-    		throw new Exception("Nozzle tip pressure too high. Clean nozzle tip expected!");
+    	double p0;
+    	int retries=0;
+    	while(retries < 50) {
+        	p0 = pressure(nozzle);
+        	ReferenceNozzleTip rn = (ReferenceNozzleTip) nozzle.getNozzleTip();
+        	
+        	if(p0 < rn.getVacuumLevelPartOff()) { // TODO 5: pressure logic
+        		return;
+        	}   		
+        	retries++;
     	}
+    	
+    	throw new Exception("Nozzle tip pressure too high. Clean nozzle tip expected!");
 	}
 
 	private void pickPart(Nozzle nozzle, Location derive) {
@@ -462,7 +470,8 @@ public class HeapFeeder extends ReferenceFeeder {
 		dX=0;
 		dY= -boxRow()*(boxTrayInnerSizeY.getValue() + boxTrayWallThickness.getValue()) 
 				-boxTrayInnerSizeY.getValue()/2 -boxTrayWallThickness.getValue() 
-				-corridorWidth.getValue()/2;
+				-corridorWidth.getValue()/2
+				-1 ; // TODO 3: remove this workaround (locations with rotation needed)
 		dZ=0;
 		nozLoc = nozLoc.add(new Location(LengthUnit.Millimeters, dX,dY,dZ,0));
 		nozzle.moveTo(nozLoc);
@@ -482,10 +491,10 @@ public class HeapFeeder extends ReferenceFeeder {
 		double saveZ = 0; // TODO 4: saveZ
 		
 		// * move to final dropbox position
-		nozzle.moveToSafeZ(); 
+		//nozzle.moveToSafeZ();  // TODO 5: reenable saveZ for public
 		nozLoc = dropBoxLocation.derive(null, null, saveZ, null); // get drop box location at saveZ
-		dX=-9;
-		dY=+9;
+		dX=0; // TODO 2: optimize drop location
+		dY=0;
 		dZ=0;
 		nozLoc = nozLoc.add(new Location(LengthUnit.Millimeters, dX,dY,dZ,0));
 		nozzle.moveTo(nozLoc); // move above drop location at saveZ
@@ -501,7 +510,6 @@ public class HeapFeeder extends ReferenceFeeder {
 		valveOff(nozzle);
 		
 		// dummy pick location for testing with a "real" pnp-job
-		pickLocation = nozzle.getLocation(); // TODO 0: remove debug code
     }
     
     /**
@@ -803,7 +811,7 @@ public class HeapFeeder extends ReferenceFeeder {
 
 	private Location getNextUpsideUpLocationInDropbox(Camera camera, Nozzle nozzle) throws Exception {
 		
-		camera.moveToSafeZ();
+		nozzle.moveToSafeZ();
 		camera.moveTo(dropBoxLocation);
 		
 		CvPipeline pipeline = null;
