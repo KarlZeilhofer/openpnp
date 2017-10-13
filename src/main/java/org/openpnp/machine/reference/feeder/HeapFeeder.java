@@ -218,7 +218,7 @@ public class HeapFeeder extends ReferenceFeeder {
      * For simplicity, on the way from the up-camera to the separation area, the chip flip area
      * and the pickLocation there must not be any Box underneath. 
      */
-    private List<Location> heapToUpcamWayPoints; // TODO 4: use this and implement in GUI or make it very intelligent. 
+    private ArrayList<Location> heapToUpcamWayPoints = new ArrayList<Location>(); // TODO 4: use this and implement in GUI or make it very intelligent. 
     // NOTE: for the prototype, we use a direct path until to the right edge of box tray Nr 1.   
 
     /**
@@ -417,9 +417,11 @@ public class HeapFeeder extends ReferenceFeeder {
 				pickNewPartFromBox(nozzle);
 				transportToExit(nozzle);
 			}
+			moveToDropLocationAndDrop(nozzle); // TODO 2: speed improvement: put this into the if() above. 
+				// WARNING: if this moveToDropLocationAndDrop() is skipped, we don't get a new location from 
+				// getNextUpsideUpLocationInDropbox() below - the reason is unclear!
 
 			Location l;
-			moveToDropLocationAndDrop(nozzle);
 			l = getNextUpsideUpLocationInDropbox(camera, nozzle);
 			if (l != null) {
 				// sanity check: location must be within 7mm radius of the center of the dropbox
@@ -465,15 +467,23 @@ public class HeapFeeder extends ReferenceFeeder {
 		// TODO Auto-generated method stub
 		
 	}
-
+	
 	private void transportToExit(Nozzle nozzle) throws Exception {
     	nozzle.moveToSafeZ();
+    	updateHeapToUpcamWayPoints();
+    	for(Location loc : heapToUpcamWayPoints) {
+    		nozzle.moveTo(loc);
+    	}
+	}
+
+	private void updateHeapToUpcamWayPoints() throws Exception {
     	double saveZ = 0;
     	// TODO 3: double saveZ = nozzle.getLocation().getZ()
     	
     	Location nozLoc = location.derive(null, null, saveZ, null); // TODO 5: we assume here a save-z of 0
     	
-    	nozzle.moveTo(nozLoc);
+
+    	heapToUpcamWayPoints.add(nozLoc);
     	
     	double dX = 0;
     	double dY=0;
@@ -492,14 +502,16 @@ public class HeapFeeder extends ReferenceFeeder {
 		dY = 0; 
 		dZ = 0; // dont change
 		nozLoc = nozLoc.add(new Location(LengthUnit.Millimeters, dX,dY,dZ,0));
-		nozzle.moveTo(nozLoc);
+
+		heapToUpcamWayPoints.add(nozLoc);
 		
 		// * move down into the corridor
 		x = null; 
 		y = null;
 		z = location.getZ() -5; // TODO 5: we assume here a save-z of 0
 		nozLoc = nozLoc.derive(x, y, z, null);
-		nozzle.moveTo(nozLoc);
+
+		heapToUpcamWayPoints.add(nozLoc);
 		
 		
 		// * move towards front (near the origin of the current BoxTray) in the y-corridor
@@ -510,7 +522,8 @@ public class HeapFeeder extends ReferenceFeeder {
 				-1 ; // TODO 3: remove this workaround (locations with rotation needed)
 		dZ=0;
 		nozLoc = nozLoc.add(new Location(LengthUnit.Millimeters, dX,dY,dZ,0));
-		nozzle.moveTo(nozLoc);
+
+		heapToUpcamWayPoints.add(nozLoc);
 		
 		// * move to the right to the exit of the x-corridor
 		x = globalBoxTrayLocations.get(1).getX() + 
@@ -518,7 +531,8 @@ public class HeapFeeder extends ReferenceFeeder {
 		y=null; 
 		z=null; // dont change
 		nozLoc = nozLoc.derive(x, y, z, null);
-		nozzle.moveTo(nozLoc);
+
+		heapToUpcamWayPoints.add(nozLoc);
     }
     
     private void moveToDropLocationAndDrop(Nozzle nozzle) throws Exception {
@@ -1007,7 +1021,8 @@ public class HeapFeeder extends ReferenceFeeder {
         pipeline.process();
         
         // Grab the results
-        List<RotatedRect> results = (List<RotatedRect>) pipeline.getResult("results").model;
+        @SuppressWarnings("unchecked")
+		List<RotatedRect> results = (List<RotatedRect>) pipeline.getResult("results").model;
         
         ArrayList<Location> ret = new ArrayList<Location>();
         for(RotatedRect result : results) {
