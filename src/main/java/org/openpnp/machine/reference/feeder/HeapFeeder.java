@@ -34,6 +34,7 @@ import org.openpnp.machine.reference.ReferenceActuator;
 import org.openpnp.machine.reference.ReferenceDriver;
 import org.openpnp.machine.reference.ReferenceFeeder;
 import org.openpnp.machine.reference.ReferenceMachine;
+import org.openpnp.machine.reference.ReferenceNozzleTip;
 import org.openpnp.machine.reference.feeder.wizards.HeapFeederConfigurationWizard;
 import org.openpnp.model.Configuration;
 import org.openpnp.model.Length;
@@ -236,7 +237,8 @@ public class HeapFeeder extends ReferenceFeeder {
      * 
      * 
      */
-    static private Location dropBoxLocation = new Location(LengthUnit.Millimeters, 401.300, 136.200, -23.0, 0.0); // TODO 4: dropBoxLocation attribute
+ // TODO 4: dropBoxLocation attribute
+    static private Location dropBoxLocation = new Location(LengthUnit.Millimeters, 404.325, 127.952, -25.6, 0.0); 
 
     
     /**
@@ -245,37 +247,38 @@ public class HeapFeeder extends ReferenceFeeder {
      * It is the center of the flat area of the DropBox. It is used for the built in 
      * AdvancedLoosePartFeeder, which is  responsible for picking the parts up again. 
      */
-   static private Location dropBoxPlaneLocation = new Location(LengthUnit.Millimeters, 401.300, 136.200, -23.0, 0.0); // TODO 4: dropBoxLocation attribute
+ // TODO 4: dropBoxFloorLocation attribute
+   static private Location dropBoxFloorLocation = new Location(LengthUnit.Millimeters, 404.325, 127.952, -40.6, 0.0); 
 
     
     
     /**
-     * The chipFlipDropLocation is a fixed location shared by all feeders of this type. 
+     * The chipFlipPutLocation is a fixed location shared by all feeders of this type. 
      * 
      * After picking up a part from the heap or from the separationPickupArea, 
      * the part is perahps flipped, so the bottom side of the part is upwards. 
      * 
-     * The Z value is the height, from where the part is dropped from. 
+     * The Z value is the height of the chip flipper's put floor. 
      * 
-     * @see chipFlipPickupArea
+     * @see chipFlipGetLocation
      */
-    static private Location chipFlipDropLocation;
+    static private Location chipFlipPutLocation;
 
     /**
-     * The chipFlipPickupArea is a fixed location shared by all feeders of this type. 
+     * The chipFlipGetLocation is a fixed location shared by all feeders of this type. 
      * 
-     * After dropping the part from the chipFlipDropLocation, it must be within the 
-     * field of view of the down-camera to be recognized. 
+     * After flipping the chip by the chip flipper, it is fetched from here. 
+     * We assume a static location, so no vision is needed here.
      * 
-     * @see chipFlipDropLocation
+     * @see chipFlipPutLocation
      */
-    static private Location chipFlipPickupArea;
+    static private Location chipFlipGetLocation;
     
     
     
     
     // @Element(required=false) TODO 2: @Element for side view location
-    static private Location sideViewLocation = new Location(LengthUnit.Millimeters, 0,0,0,0); // TODO 0: side view location 
+    static private Location sideViewLocation = new Location(LengthUnit.Millimeters, 347.027,14.093,0,0); // TODO 0: side view location 
     
     /**
      * The pickLocation is a fixed location for this feeder object. 
@@ -370,16 +373,56 @@ public class HeapFeeder extends ReferenceFeeder {
 		     else // no part on nozzle found
 		     	* throw error
          */
+        
+        // TODO 0: clean up first!
     	
-        pickNewPart(camera, nozzle);
+        int retries = 0;
+		do {
+			checkForCleanNozzleTip(nozzle);
+			pickNewPartFromBox(nozzle);
+			transportToExit(nozzle);
+			moveToDropLocationAndDrop(nozzle);
+
+			Location l;
+			l = getNextUpsideUpLocationInDropbox(camera, nozzle);
+			if (l != null) {
+				// sanity check: location must be within 7mm radius of the center of the dropbox
+				if(l.getLinearDistanceTo(dropBoxLocation) > 7) { // TODO 3: set attribute for dropbox radius
+					throw new Exception("Pick location for upside up parts is out of the floor of the DropBox. "+
+							"Check coordinates and/or vision pipeline");
+				}
+				
+				pickLocation = l.derive(null, null, dropBoxFloorLocation.getZ() + part.getHeight().getValue(), null);
+			}
+			
+			retries++;
+		} while (pickLocation == null || retries > 3);
         
-        moveToDropLocation(camera, nozzle);
         
-        // TODO 0: use advanced loose parts feeder
+        
         // TOOD 0: use chip flipper
     }
     
-    private void moveToDropLocation(Camera camera, Nozzle nozzle) throws Exception {
+    private void checkForCleanNozzleTip(Nozzle nozzle) throws Exception {
+    	nozzle.moveToSafeZ();
+    	pumpOn();
+    	valveOn(nozzle);
+    	Thread.sleep(300);
+    	double p0 = pressure(nozzle);
+    			
+    	ReferenceNozzleTip rn = (ReferenceNozzleTip) nozzle;
+    	
+    	if(p0 > rn.getVacuumLevelPartOff()) {
+    		throw new Exception("Nozzle tip pressure too high. Clean nozzle tip expected!");
+    	}
+	}
+
+	private void pickPart(Nozzle nozzle, Location derive) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	private void transportToExit(Nozzle nozzle) throws Exception {
     	nozzle.moveToSafeZ();
     	double saveZ = 0;
     	// TODO 3: double saveZ = nozzle.getLocation().getZ()
@@ -431,10 +474,15 @@ public class HeapFeeder extends ReferenceFeeder {
 		z=null; // dont change
 		nozLoc = nozLoc.derive(x, y, z, null);
 		nozzle.moveTo(nozLoc);
-		
+    }
+    
+    private void moveToDropLocationAndDrop(Nozzle nozzle) throws Exception {
+		Location nozLoc;
+		double dX,dY,dZ;
+		double saveZ = 0; // TODO 4: saveZ
 		
 		// * move to final dropbox position
-		nozzle.moveToSafeZ(); // move up from corridor before moving above drop location
+		nozzle.moveToSafeZ(); 
 		nozLoc = dropBoxLocation.derive(null, null, saveZ, null); // get drop box location at saveZ
 		dX=-9;
 		dY=+9;
@@ -442,9 +490,9 @@ public class HeapFeeder extends ReferenceFeeder {
 		nozLoc = nozLoc.add(new Location(LengthUnit.Millimeters, dX,dY,dZ,0));
 		nozzle.moveTo(nozLoc); // move above drop location at saveZ
 		
-		x=null; 
-		y=null;
-		z = dropBoxLocation.getZ();
+		Double x=null; 
+		Double y=null;
+		Double z = dropBoxLocation.getZ();
 		nozLoc = nozLoc.derive(x, y, z, null);
 		nozzle.moveTo(nozLoc); // go down to drop height. 
 		
@@ -463,7 +511,7 @@ public class HeapFeeder extends ReferenceFeeder {
      * @return
      * @throws Exception
      */
-    private void pickNewPart(Camera camera, Nozzle nozzle) throws Exception {
+    private void pickNewPartFromBox(Nozzle nozzle) throws Exception {
         // Turn on the vacuum pump and the valve
     	pumpOn();
     	valveOn(nozzle);
