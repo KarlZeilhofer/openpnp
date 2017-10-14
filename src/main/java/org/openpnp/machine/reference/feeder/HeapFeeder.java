@@ -106,8 +106,44 @@ Our BoxTrays for testing have 2 columns and 8 Rows (A1..B8).
 
 The nozzle takes the parts only from the center of one Box, since there is 
 only very little clearance for the nozzles collar (12mmx12mm vs. 10.5mm diameter). 
+Minor xy movement is added to mix them up a bit. Otherwise we dig hole in the center
+and push the parts then very hard. 
 
+
+Conventions to the CV Pipelines:
+
+UpsideUp:
+	must detect only parts, which have their upside upwards. 
+	They are ready for placement (with optional bottom vision)
+	The ROI (region of interest) should be clipped to the floor of the 
+	DropBox. A sanity check is done anyway for the nozzle movement before
+	picking the parts up. 
+
+UpsideDown:
+	must return all parts which have to be flipped before placement. 
+	It should return also the upside up parts with a very high true positives rate
+	and alow false negative rate. This leads to a speed improvement: 
+	When we process the UpsideUp PL, we also process the Upside Down, to let
+	the feeder know, if we have to fetch new parts from the Box or if we could expect
+	flipped parts in the DropBox. 
+	The ROI must be clipped again to the diameter of the floor 
+	of the DropBox. 
+
+AnythingElse:
+	The ROI is expanded, so we can detect something also on the slopes of the
+	DropBox. It must return everything, that doesn't belong to the DropBox itself. 
 	
+SideView:
+	This vision is used to detect flipped SOT23 for example. From the top view
+	upside up and upside down parts are nearly not distinguishable - even for 
+	the human eye. 
+	The parts are brought to the chip flipper, where we also have a mirror directed to 
+	the put location. The horizontal centerline of the image must be aligned with
+	the vertical center of the part under test. It must return rotated rects for
+	the bright pins, which normally should only appear above or below the centerline
+	of the image. No returns or mixed returns lead to an exception. 
+
+
 
  */
 
@@ -275,17 +311,36 @@ public class HeapFeeder extends ReferenceFeeder {
      * 
      * @see chipFlipGetLocation
      */
-    static private Location chipFlipPutLocation;
+    private Location chipFlipperPutLocation() throws Exception {
+    	ReferenceFeeder f = (ReferenceFeeder)(getMachine().getFeederByName("position-chipflipper-1-put"));
+    	
+    	if(f == null) {
+    		throw new Exception("Missing Feeder position-chipflipper-3-get for position of ChipFlipper's get surface");
+    	}
+    	
+    	return f.getLocation();
+    }
 
     /**
      * The chipFlipGetLocation is a fixed location shared by all feeders of this type. 
      * 
      * After flipping the chip by the chip flipper, it is fetched from here. 
-     * We assume a static location, so no vision is needed here.
+     * We assume a static location, so no vision is used here.
+     * 
+     * The z-value is the surface where the parts lays on. 
      * 
      * @see chipFlipPutLocation
      */
-    static private Location chipFlipGetLocation;
+    private Location chipFlipperGetLocation() throws Exception {
+    	ReferenceFeeder f = (ReferenceFeeder)(getMachine().getFeederByName("position-chipflipper-3-get"));
+    	
+    	if(f == null) {
+    		throw new Exception("Missing Feeder position-chipflipper-3-get for position of ChipFlipper's get surface");
+    	}
+    	
+    	return f.getLocation();
+    	
+    }
     
     
     
@@ -423,7 +478,7 @@ public class HeapFeeder extends ReferenceFeeder {
 		do {
 			checkForCleanNozzleTip(nozzle);
 			
-			if(currentUpsideUpPartsInDropBox <= 0) {
+			if(currentUpsideUpPartsInDropBox <= 0 && currentUpsideDownPartsInDropBox <= 0) {
 				pickNewPartFromBox(nozzle);
 				transportToExit(nozzle);
 				moveToDropLocationAndDrop(nozzle);
@@ -434,30 +489,66 @@ public class HeapFeeder extends ReferenceFeeder {
 					// getNextUpsideUpLocationInDropbox() below - the reason is unclear!
 			}
 
-			Location l;
-			l = getNextUpsideUpLocationInDropbox(camera, nozzle);
-			if (l != null) {
+			Location lNormal=null;
+			Location lFlipped=null;
+			Location lPick=null;
+			//int recentUpsideUpPartsInDropBox = currentUpsideUpPartsInDropBox;
+			
+			lNormal = getNextUpsideUpLocationInDropbox(camera, nozzle);
+			if(upsideDownPipelineEnabledFlag == true 
+					&& currentUpsideUpPartsInDropBox <= 2) { // bother the upside down pipeline only if it is the 
+						// last normal part we are taking now, or we didn't find an upside up part any more. 
+				
+				// call this also to update the number of flipped chips. 
+				// so we can avoid a fetch in the next cycle, if we have flipped chips. 
+				lFlipped = getNextUpsideDownLocationInDropbox(camera, nozzle); 
+			}
+			
+
+			if (lNormal != null) {
+				lPick = lNormal;
+			}else if(lFlipped != null) {
+				lPick = lFlipped;
+			}
+			
+			if(lPick != null) {
 				// sanity check: location must be within 7mm radius of the center of the dropbox
-				if(l.getLinearDistanceTo(dropBoxLocation()) > 7.5) { // TODO 4: set attribute for dropbox radius
+				if(lPick.getLinearDistanceTo(dropBoxLocation()) > 7.5) { // TODO 4: set attribute for dropbox radius
 					throw new Exception("Pick location for upside up parts is out of the floor of the DropBox. "+
 							"Check coordinates and/or vision pipeline");
-				}else if(l.getLinearDistanceTo(dropBoxLocation()) > 7) { // TODO 4: set attribute for dropbox radius
+				}else if(lPick.getLinearDistanceTo(dropBoxLocation()) > 7) { // TODO 4: set attribute for dropbox radius
 					//limit the radius to 7mm
 					Location c = dropBoxLocation();
-					double r = l.getLinearDistanceTo(dropBoxLocation());
+					double r = lPick.getLinearDistanceTo(dropBoxLocation());
 					
-					Location delta = l.subtract(c);
+					Location delta = lPick.subtract(c);
 					delta = delta.multiply(1/r, 1/r, 0, 0).multiply(7,  7,  0,  0); // TODO replace 7
 					
 					Location clipped = c.add(delta);
-					l = clipped;
+					lPick = clipped;
 				}
-
-				
-				pickLocation = l.derive(null, null, dropBoxFloorLocation().getZ() + part.getHeight().getValue(), null);
-				currentUpsideUpPartsInDropBox--;
+				lPick = lPick.derive(null, null, dropBoxFloorLocation().getZ() + part.getHeight().getValue(), null);
 			}
 			
+			// now we know, where to pick from, but should we flip or do a side vision before exit?
+			if(lNormal != null) {
+				if(sideViewPipelineEnabledFlag == false) {
+					pickLocation = lPick; // finished
+				}else {
+					// TODO 2: implement side view cycle
+				}
+				currentUpsideUpPartsInDropBox--;
+			}else if(lFlipped != null) {
+				// then we have to do the flipping before
+				
+				pickPart(nozzle, lPick);
+				transportToChipFlipper(nozzle);
+				flip();
+				pickLocation = chipFlipperGetLocation().add(
+						new Location(LengthUnit.Millimeters, 0.0,0.0,getPart().getHeight().getValue()-0.5, 0.0)); // TODO 1: optimize value   
+						// TODO 4: constant
+			}
+
 			retries++;
 		} while (pickLocation == null && retries < 3);
         
@@ -466,7 +557,34 @@ public class HeapFeeder extends ReferenceFeeder {
         // TOOD 0: use chip flipper
     }
     
-    public void cleanUp(Nozzle nozzle, HeapFeeder calledBy) throws Exception{
+	private void transportToChipFlipper(Nozzle nozzle) throws Exception {
+		nozzle.moveToSafeZ();
+		double saveZ = nozzle.getLocation().getZ();
+		
+		nozzle.moveTo(chipFlipperPutLocation().derive(null,  null,  saveZ, null));
+		
+		double h = getPart().getHeight().getValue();
+		if(h < 0.6) {
+			h = 0.6; // we have to slip off the part against an obstacle, which is 0.5mm high
+			// TODO 4: replace constant
+		}
+		
+		nozzle.moveTo(chipFlipperPutLocation().add(
+				new Location(LengthUnit.Millimeters, 0,0, h, 0)));
+		
+		valveOff(nozzle);
+		
+		nozzle.moveTo(nozzle.getLocation().add(
+				new Location(LengthUnit.Millimeters, 0, 5, 0, 0)), 0.005); // TODO 4: replace this constant
+		
+		nozzle.moveToSafeZ(); // finished	
+		
+		// move to park position (out of the way of the chip flippers motion volume)
+		nozzle.moveTo(nozzle.getLocation().add(
+				new Location(LengthUnit.Millimeters, 40, 0, 0, 0))); // TODO 4: replace this constant
+	}
+
+	public void cleanUp(Nozzle nozzle, HeapFeeder calledBy) throws Exception{
     	Camera camera = nozzle.getHead().getDefaultCamera();
     	currentUpsideUpPartsInDropBox = 0;
     	currentUpsideDownPartsInDropBox = 0;
@@ -715,7 +833,8 @@ public class HeapFeeder extends ReferenceFeeder {
     }
     
     /**
-     * We assume that the separation area is cleaned up!
+     * We assume that the DropBox is cleaned up or has only parts from this feeder (only Anything Else)
+     * We do not pick new Parts, if in the last top vision flipped parts were detected. 
      * @param camera
      * @param nozzle
      * @return
@@ -786,6 +905,12 @@ public class HeapFeeder extends ReferenceFeeder {
 				l = lStart.add(dLocation);
 				
 				nozzle.moveTo(l);
+				
+				if(nozzle.getLocation().getZ() < (-42.7+1+getPart().getHeight().getValue())) { // TODO 4: replace constant
+					throw new Exception("Box is empty!");
+				}
+				
+				
 				Thread.sleep(dwellOnZStep); 
 				p1 = pressure(nozzle);
 				Logger.trace("pressure = {}, delta = {}, dZ = {}", p1, p1-p0, dZ);
@@ -844,6 +969,10 @@ public class HeapFeeder extends ReferenceFeeder {
     	getDriver().actuate(pump() , false); 
     }
     
+    private void flip() throws Exception {
+    	getDriver().actuate(chipFlipper() , true); 
+    }
+    
     private void valveOn(Nozzle nozzle) throws Exception {
     	getDriver().actuate(valve(nozzle) , true); 
     }
@@ -868,6 +997,10 @@ public class HeapFeeder extends ReferenceFeeder {
     
     private ReferenceActuator pump() {
     	return getActuator(pumpName);
+    }
+    
+    private ReferenceActuator chipFlipper() {
+    	return getActuator("ChipFlipper"); // TODO 4: constant
     }
     
     private ReferenceActuator valve(Nozzle nozzle) {
@@ -1034,6 +1167,7 @@ public class HeapFeeder extends ReferenceFeeder {
 		ArrayList<Location> locs = getLocationsFromCvPipeline(camera, nozzle, pipeline);
 		if(locs.size() > 0) {
 			currentUpsideUpPartsInDropBox = locs.size();
+			Logger.info(Integer.toString(currentUpsideUpPartsInDropBox) + " parts found in UpsideUp vision");
 			return locs.get(0);
 		}else {
 			currentUpsideUpPartsInDropBox = 0;
@@ -1062,7 +1196,14 @@ public class HeapFeeder extends ReferenceFeeder {
 		
 		ArrayList<Location> locs = getLocationsFromCvPipeline(camera, nozzle, pipeline);
 		if(locs.size() > 0) {
-			currentUpsideDownPartsInDropBox = locs.size();
+			int partsFound =  locs.size();
+			
+			// correct this value (see conventions for the HeapFeeeder CV pipelines). 
+			// This must not be exact, but is a best guess. 
+			currentUpsideDownPartsInDropBox = partsFound - currentUpsideUpPartsInDropBox;  
+			Logger.info(Integer.toString(partsFound) + " parts found in UpsideDown vision. Probably " + 
+					Integer.toString(currentUpsideDownPartsInDropBox) + " parts flipped in the DropBox");
+			
 			return locs.get(0);
 		}else {
 			currentUpsideDownPartsInDropBox = 0;
@@ -1176,7 +1317,9 @@ public class HeapFeeder extends ReferenceFeeder {
         
         ArrayList<Location> ret = new ArrayList<Location>();
         if(results == null) {
-        	throw new Exception("Results from CvPipeline is Null! Check Pipeline");
+        	Logger.warn("Pipeline returned Null - is this desired?");
+        	return ret; // return empty list
+        	//throw new Exception("Results from CvPipeline is Null! Check Pipeline");
         }
         for(RotatedRect result : results) {
         	Location cvLocation = VisionUtils.getPixelLocation(camera, result.center.x, result.center.y);
