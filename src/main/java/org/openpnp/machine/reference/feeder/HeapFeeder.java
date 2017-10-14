@@ -115,11 +115,11 @@ public class HeapFeeder extends ReferenceFeeder {
     
     
     @Attribute(required = false)
-    private String pumpName = "Pumpe";
+    private String pumpName = "Pumpe"; // TODO 4: parameter
     @Attribute(required = false)
-    private String valveName = "Ventil";
+    private String valveName = "Ventil"; // TODO 4: parameter
     @Attribute(required = false)
-    private String pressureSensorName = "Drucksensor";
+    private String pressureSensorName = "Drucksensor"; // TODO 4: parameter
     @Attribute(required = false)
     private double pressureDelta = 3.0;
     @Element(required = false)
@@ -144,11 +144,11 @@ public class HeapFeeder extends ReferenceFeeder {
     private Length boxTrayInnerSizeY = new Length(12, LengthUnit.Millimeters); // TODO 5: make adjustable
 
     @Attribute(required = false)
-    private String subBoxName = "A1"; // TODO 2: make adjustable
+    private String subBoxName = "A1"; 
 	@Attribute(required = false)
-    private int boxTrayId = 1; // TODO 2: make adjustable
+    private int boxTrayId = 1; 
     
-	// @ElementList(required = false) // TODO 3: fix bug with Megabytes of repeated entries in machine.xml
+	// @ElementList(required = false) // TODO 4: fix bug with Megabytes of repeated entries in machine.xml
     private static List<Location> globalBoxTrayLocations = new ArrayList<Location>(); // TODO 5: provide GUI
 
    
@@ -232,7 +232,8 @@ public class HeapFeeder extends ReferenceFeeder {
      * The DropBox has a flat area of 15x15mm, small enough that the camera can 
      * analyze it for parts. 
 
-     * TODO 5: This is detected by the up-camera. Only in this case, the parts
+     * TODO 3: Optional Bottom Vision Priority 
+     * This is detected by the up-camera. Only in this case, the parts
      * are dropped on the separationArea. 
      * 
      * 
@@ -289,8 +290,15 @@ public class HeapFeeder extends ReferenceFeeder {
     
     
     
-    // @Element(required=false) TODO 2: @Element for side view location
-    static private Location sideViewLocation = new Location(LengthUnit.Millimeters, 347.027,14.093,0,0); // TODO 0: side view location 
+    private Location sideViewLocation() throws Exception { // TODO 4: put into XML
+    	ReferenceFeeder f = (ReferenceFeeder)(getMachine().getFeederByName("position-chipflipper-2-mirror"));
+    	
+    	if(f == null) {
+    		throw new Exception("Missing Feeder position-chipflipper-2-mirror for position of DropBox");
+    	}
+    	
+    	return f.getLocation();
+    }
     
     /**
      * The pickLocation is a fixed location for this feeder object. 
@@ -352,7 +360,7 @@ public class HeapFeeder extends ReferenceFeeder {
          
          
          if(still parts on separation area)
-         	Clean up (TODO)
+         	Clean up
          
          
          Pick new Part:
@@ -418,19 +426,22 @@ public class HeapFeeder extends ReferenceFeeder {
 			if(currentUpsideUpPartsInDropBox <= 0) {
 				pickNewPartFromBox(nozzle);
 				transportToExit(nozzle);
+				moveToDropLocationAndDrop(nozzle);
+			}else {
+				dummyMove(nozzle);
+				 // TODO 2: speed improvement:
+					// WARNING: if this dumyMove() is skipped, we don't get a new location from 
+					// getNextUpsideUpLocationInDropbox() below - the reason is unclear!
 			}
-			moveToDropLocationAndDrop(nozzle); // TODO 2: speed improvement: put this into the if() above. 
-				// WARNING: if this moveToDropLocationAndDrop() is skipped, we don't get a new location from 
-				// getNextUpsideUpLocationInDropbox() below - the reason is unclear!
 
 			Location l;
 			l = getNextUpsideUpLocationInDropbox(camera, nozzle);
 			if (l != null) {
 				// sanity check: location must be within 7mm radius of the center of the dropbox
-				if(l.getLinearDistanceTo(dropBoxLocation()) > 7.5) { // TODO 3: set attribute for dropbox radius
+				if(l.getLinearDistanceTo(dropBoxLocation()) > 7.5) { // TODO 4: set attribute for dropbox radius
 					throw new Exception("Pick location for upside up parts is out of the floor of the DropBox. "+
 							"Check coordinates and/or vision pipeline");
-				}else if(l.getLinearDistanceTo(dropBoxLocation()) > 7) { // TODO 3: set attribute for dropbox radius
+				}else if(l.getLinearDistanceTo(dropBoxLocation()) > 7) { // TODO 4: set attribute for dropbox radius
 					//limit the radius to 7mm
 					Location c = dropBoxLocation();
 					double r = l.getLinearDistanceTo(dropBoxLocation());
@@ -463,20 +474,16 @@ public class HeapFeeder extends ReferenceFeeder {
     	do {
     		checkForCleanNozzleTip(nozzle);
 
-
-    		// NOTE: dummy move:
-    		moveToDropLocationAndDrop(nozzle); // TODO 2: speed improvement: put this into the if() above. 
-    		// WARNING: if this moveToDropLocationAndDrop() is skipped, we don't get a new location from 
-    		// getNextUpsideUpLocationInDropbox() below - the reason is unclear!
+    		dummyMove(nozzle); // TODO 2: speed improvement
 
     		Location l;
     		l = getNextAnythingElseLocationInDropbox(camera, nozzle);
     		if (l != null) {
 				// sanity check: location must be within 7mm radius of the center of the dropbox
-				if(l.getLinearDistanceTo(dropBoxLocation()) > 7.5) { // TODO 3: set attribute for dropbox radius
+				if(l.getLinearDistanceTo(dropBoxLocation()) > 7.5) { // TODO 4: set attribute for dropbox radius
     				throw new Exception("Cleaning Up, called by HeapFeeder" + calledBy.getName() + ": Pick location for Anything Else parts is out of the floor of the DropBox. "+
     						"Check coordinates and/or vision pipeline");
-				}else if(l.getLinearDistanceTo(dropBoxLocation()) > 7) { // TODO 3: set attribute for dropbox radius
+				}else if(l.getLinearDistanceTo(dropBoxLocation()) > 7) { // TODO 4: set attribute for dropbox radius
 					//limit the radius to 7mm
 					Location c = dropBoxLocation();
 					double r = l.getLinearDistanceTo(dropBoxLocation());
@@ -589,9 +596,9 @@ public class HeapFeeder extends ReferenceFeeder {
 		heapToExitWayPoints.clear();
 		
     	double saveZ = 0;
-    	// TODO 3: double saveZ = nozzle.getLocation().getZ()
+    	// TODO 4: double saveZ = nozzle.getLocation().getZ()
     	
-    	Location nozLoc = location.derive(null, null, saveZ, null); // TODO 5: we assume here a save-z of 0
+    	Location nozLoc = location.derive(null, null, saveZ, null); // TODO 4: we assume here a save-z of 0
     	
 
     	heapToExitWayPoints.add(nozLoc);
@@ -619,7 +626,7 @@ public class HeapFeeder extends ReferenceFeeder {
 		// * move down into the corridor
 		x = null; 
 		y = null;
-		z = location.getZ() -5; // TODO 5: we assume here a save-z of 0
+		z = location.getZ() -5; // TODO 4: we assume here a save-z of 0
 		nozLoc = nozLoc.derive(x, y, z, null);
 
 		heapToExitWayPoints.add(nozLoc);
@@ -630,7 +637,7 @@ public class HeapFeeder extends ReferenceFeeder {
 		dY= -boxRow()*(boxTrayInnerSizeY.getValue() + boxTrayWallThickness.getValue()) 
 				-boxTrayInnerSizeY.getValue()/2 -boxTrayWallThickness.getValue() 
 				-corridorWidth.getValue()/2
-				-1 ; // TODO 3: remove this workaround (locations with rotation needed)
+				-1 ; // TODO 4: remove this workaround (locations with rotation needed)
 		dZ=0;
 		nozLoc = nozLoc.add(new Location(LengthUnit.Millimeters, dX,dY,dZ,0));
 
@@ -653,10 +660,42 @@ public class HeapFeeder extends ReferenceFeeder {
 		double dX,dY,dZ;
 		double saveZ = 0; // TODO 4: saveZ
 		
+		// TODO 3: strip off parts instead of a simple drop --> much more reliable
+		
 		// * move to final dropbox position
 		nozzle.moveToSafeZ();  
 		nozLoc = dropBoxLocation().derive(null, null, saveZ, null); // get drop box location at saveZ
-		dX=0; // TODO 2: optimize drop location
+		dX=0; 
+		dY=0;
+		dZ=0;
+		nozLoc = nozLoc.add(new Location(LengthUnit.Millimeters, dX,dY,dZ,0));
+		nozzle.moveTo(nozLoc); // move above drop location at saveZ
+		
+		Double x=null; 
+		Double y=null;
+		Double z = dropBoxLocation().getZ();
+		nozLoc = nozLoc.derive(x, y, z, null);
+		nozzle.moveTo(nozLoc); // go down to drop height. 
+		
+
+		// * drop the part(s)
+		valveOff(nozzle);
+		
+		// dummy pick location for testing with a "real" pnp-job
+    }
+    
+    private void dummyMove(Nozzle nozzle) throws Exception {
+    	// TODO 3: speed: find the essential line of code
+    	mostRecentHeapFeederId = getId();
+    	
+    	Location nozLoc;
+		double dX,dY,dZ;
+		double saveZ = 0; // TODO 4: saveZ
+		
+		// * move to final dropbox position
+		nozzle.moveToSafeZ();  
+		nozLoc = dropBoxLocation().derive(null, null, saveZ, null); // get drop box location at saveZ
+		dX=0; 
 		dY=0;
 		dZ=0;
 		nozLoc = nozLoc.add(new Location(LengthUnit.Millimeters, dX,dY,dZ,0));
@@ -706,7 +745,7 @@ public class HeapFeeder extends ReferenceFeeder {
         	dZ = +1;
         	
 	    	// Start with motion at last catch height + 1mm (improves speed)
-			double r = 0.5; // radius of stiring-motion, // TODO 3: parameter
+			double r = 0.5; // radius of stiring-motion, // TODO 4: parameter
 			Location lStart = location.add(new Location(LengthUnit.Millimeters, 0,0,lastCatchZDepth.getValue()+dZ, 0.0));
 			
 	
@@ -714,7 +753,7 @@ public class HeapFeeder extends ReferenceFeeder {
 			while(p1 - p0 < pressureDelta && dZ > maxZTravel.getValue() && isZSwitchActivated(nozzle) == false) {
 				Location l = location;
 		    	
-				// TODO 3: handle collision with Box's floor
+				// TODO 2: handle collision with Box's floor
 				double dX = 0;
 				double dY = 0;
 				
@@ -758,10 +797,10 @@ public class HeapFeeder extends ReferenceFeeder {
 	    	
 	        // * move up to save z. 
 			// on low pressure, we go very slow
-			if(p1-p0 < 0.500 && p1 - p0 >= pressureDelta) { // TODO 3: replace constant
-				nozzle.moveTo(location, 0.01);
+			if(p1-p0 < 0.500 && p1 - p0 >= pressureDelta) { // TODO 4: replace constant
+				nozzle.moveTo(location, 0.01); // slow move up
 			}else {
-				nozzle.moveTo(location);
+				nozzle.moveTo(location); // normal fast move up
 			}
 			Thread.sleep(dwellOnZStep); 
 			p1 = pressure(nozzle);
@@ -773,7 +812,7 @@ public class HeapFeeder extends ReferenceFeeder {
     	
         // * move up to save z. 
 		// on low pressure, we go very slow
-		if(p1-p0 < 0.500) { // TODO 3: replace constant
+		if(p1-p0 < 0.500) { // TODO 4: replace constant
 			nozzle.moveToSafeZ(0.1);
 		}else {
 			nozzle.moveToSafeZ();
@@ -836,12 +875,12 @@ public class HeapFeeder extends ReferenceFeeder {
     }
     
     private ReferenceActuator pressureSensor(Nozzle nozzle) {
-    	return (ReferenceActuator) nozzle.getHead().getActuatorByName("Drucksensor");
+    	return (ReferenceActuator) nozzle.getHead().getActuatorByName("Drucksensor"); // TODO 4: parameter
     	// return (ReferenceActuator) nozzle.getHead().getActuatorByName(((ReferenceNozzle)nozzle).getVacuumSenseActuatorName()); // TODO 4: use this Attribute
     }
     
     private ReferenceActuator zSwitchInput(Nozzle nozzle) {
-    	return (ReferenceActuator) nozzle.getHead().getActuatorByName("Ueberlastschalter"); // TODO 3: parameter
+    	return (ReferenceActuator) nozzle.getHead().getActuatorByName("Ueberlastschalter"); // TODO 4: parameter
     }
     
     private ReferenceActuator getActuator(String id) {
@@ -1140,12 +1179,19 @@ public class HeapFeeder extends ReferenceFeeder {
         	throw new Exception("Results from CvPipeline is Null! Check Pipeline");
         }
         for(RotatedRect result : results) {
-        	Location location = VisionUtils.getPixelLocation(camera, result.center.x, result.center.y);
+        	Location cvLocation = VisionUtils.getPixelLocation(camera, result.center.x, result.center.y);
+        	
+        	double angleCorrection=0;
+        	if(result.size.width < result.size.height) {
+        		angleCorrection = 90;
+        	}
+        	
+        	
             // Get the result's Location
             // Update the location with the result's rotation
-            location = location.derive(null, null, null, -(result.angle + getLocation().getRotation()));
-            // TODO 1: fix 90° Rotation!
-        	ret.add(location);
+            cvLocation = cvLocation.derive(null, null, null, -(result.angle+angleCorrection + location.getRotation()));
+            // TODO 3: fix 180° Rotation for better speed
+        	ret.add(cvLocation);
         }
 
         MainFrame.get().getCameraViews().getCameraView(camera)
@@ -1289,7 +1335,8 @@ public class HeapFeeder extends ReferenceFeeder {
     }
 
     @Override
-    // TODO 3: if this is the A1 box, this updates the globalBoxTrayLocation!
+    // TODO 4: if this is the A1 box, this updates the globalBoxTrayLocation!
+    // and updates the location of all its associated SubBoxes
     public void setLocation(Location location) {
         Object oldValue = this.location;
         this.location = location;
@@ -1301,10 +1348,11 @@ public class HeapFeeder extends ReferenceFeeder {
     	try
     	{
         	Camera cam = getMachine().getDefaultHead().getDefaultCamera();
-        	cam.moveToSafeZ();
+        	Nozzle nozzle = getMachine().getDefaultHead().getDefaultNozzle();
+        	nozzle.moveToSafeZ();
         	cam.moveTo(dropBoxLocation());
     	}catch(Exception e) {
-    		// TODO 3: what to do about exceptions within the wizard?
+    		// TODO 4: what to do about exceptions within the wizard?
     	}
     }
     
@@ -1312,10 +1360,11 @@ public class HeapFeeder extends ReferenceFeeder {
     	try
     	{
         	Camera cam = getMachine().getDefaultHead().getDefaultCamera();
-        	cam.moveToSafeZ();
-        	cam.moveTo(sideViewLocation);
+        	Nozzle nozzle = getMachine().getDefaultHead().getDefaultNozzle();
+        	nozzle.moveToSafeZ();
+        	cam.moveTo(sideViewLocation());
     	}catch(Exception e) {
-    		// TODO 3: what to do about exceptions within the wizard?
+    		// TODO 4: what to do about exceptions within the wizard?
     	}
     }
 }
