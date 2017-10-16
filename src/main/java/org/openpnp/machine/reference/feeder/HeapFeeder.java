@@ -652,14 +652,14 @@ public class HeapFeeder extends ReferenceFeeder {
     			valveOff(nozzle);
     			
     			// spend some time with forces on the part, so it easier drops down. 
-    			nozzle.moveTo(location);
-    			nozzle.moveToSafeZ();
-    			nozzle.moveTo(location);
-    			nozzle.moveToSafeZ();
-    			nozzle.moveTo(location);
+//    			nozzle.moveTo(location);
+//    			nozzle.moveToSafeZ();
+//    			nozzle.moveTo(location);
+//    			nozzle.moveToSafeZ();
+//    			nozzle.moveTo(location);
 
-    			if(checkForCleanNozzleTip(nozzle, false) == false) {
-        			valveOff(nozzle);
+//    			if(checkForCleanNozzleTip(nozzle, false) == false) {
+//        			valveOff(nozzle);
 
     				// Abstreifen!
     				double dX = boxTrayInnerSizeX.getValue()/2 + 2; // default to right exit
@@ -668,7 +668,7 @@ public class HeapFeeder extends ReferenceFeeder {
     				}
         			nozzle.moveTo(location);
     				nozzle.moveTo(location.add(new Location(LengthUnit.Millimeters, dX, 0, 0, 0)));
-    			}
+//    			}
     			
     		}
     	} while(currentAnythingElseCountInDropBox != 0);
