@@ -485,7 +485,7 @@ public class HeapFeeder extends ReferenceFeeder {
         }
         
     	
-        int retries = 0;
+        double retries = 7;
         pickLocation = null;
 		do {
 			checkForCleanNozzleTip(nozzle);
@@ -562,14 +562,15 @@ public class HeapFeeder extends ReferenceFeeder {
 							// TODO 4: constant
 				}else if(useDropBoxFlipper) {
 					slipOffInDropBox(nozzle);
+					retries += 0.5; // try it more often with the DropBoxFlipper
 				}
 			}
 
-			retries++;
-		} while (pickLocation == null && retries < 7);
+			retries--;
+		} while (pickLocation == null && retries > 0);
 		
-		if(retries == 3) {
-			throw new Exception("HeapFeeder failed to feed a new part after 3 retries");
+		if(retries <= 0) {
+			throw new Exception("HeapFeeder failed to feed a new part after many retries");
 		}
         
         
@@ -578,11 +579,8 @@ public class HeapFeeder extends ReferenceFeeder {
     }
     
 	private void slipOffInDropBox(Nozzle nozzle) throws Exception{
-		nozzle.moveToSafeZ();
-		double saveZ = nozzle.getLocation().getZ();
-		
-		nozzle.moveTo(dropBoxTopLocation().derive(null, null, saveZ, null));
-		nozzle.moveTo(dropBoxTopLocation());
+		MovableUtils.moveToLocationAtSafeZ(nozzle, dropBoxTopLocation());
+
 		valveOff(nozzle);
 		nozzle.moveTo(dropBoxTopLocation().add(
 				new Location(LengthUnit.Millimeters, -15, 0,0,0))); // TODO 4: constant
@@ -620,7 +618,19 @@ public class HeapFeeder extends ReferenceFeeder {
     	Camera camera = nozzle.getHead().getDefaultCamera();
     	currentUpsideUpPartsInDropBox = 0;
     	currentUpsideDownPartsInDropBox = 0;
-    	
+ 
+    	// direct clean up, when part is already on the nozzle
+		if(nozzle.getPart() != null && nozzle.getPart().getId() == this.getPart().getId()) {
+			transportToBox(nozzle);
+			valveOff(nozzle);			
+			// slip off:
+			double dX = boxTrayInnerSizeX.getValue()/2 + 2; // default to right exit
+			if(boxColumn() == 0) { // left exit
+				dX *= -1; 
+			}
+			nozzle.moveTo(location);
+			nozzle.moveTo(location.add(new Location(LengthUnit.Millimeters, dX, 0, 0, 0)));
+		}
     	do {
     		checkForCleanNozzleTip(nozzle);
 
@@ -661,7 +671,7 @@ public class HeapFeeder extends ReferenceFeeder {
 //    			if(checkForCleanNozzleTip(nozzle, false) == false) {
 //        			valveOff(nozzle);
 
-    				// Abstreifen!
+    				// slop off
     				double dX = boxTrayInnerSizeX.getValue()/2 + 2; // default to right exit
     				if(boxColumn() == 0) { // left exit
     					dX *= -1; 
@@ -839,27 +849,9 @@ public class HeapFeeder extends ReferenceFeeder {
     	// TODO 3: speed: find the essential line of code
     	mostRecentHeapFeederId = getId();
     	
-    	Location nozLoc;
-		double dX,dY,dZ;
-		double saveZ = 0; // TODO 4: saveZ
-		
-		// * move to final dropbox position
-		nozzle.moveToSafeZ();  
-		nozLoc = dropBoxTopLocation().derive(null, null, saveZ, null); // get drop box location at saveZ
-		dX=0; 
-		dY=0;
-		dZ=0;
-		nozLoc = nozLoc.add(new Location(LengthUnit.Millimeters, dX,dY,dZ,0));
-		nozzle.moveTo(nozLoc); // move above drop location at saveZ
-		
-		Double x=null; 
-		Double y=null;
-		Double z = dropBoxTopLocation().getZ();
-		nozLoc = nozLoc.derive(x, y, z, null);
-		nozzle.moveTo(nozLoc); // go down to drop height. 
-		
-
-		// * drop the part(s)
+    	//MovableUtils.moveToLocationAtSafeZ(nozzle, dropBoxTopLocation());
+    	//Thread.sleep(1000);
+    	
 		valveOff(nozzle);
 		
 		// dummy pick location for testing with a "real" pnp-job
@@ -881,7 +873,7 @@ public class HeapFeeder extends ReferenceFeeder {
     	MovableUtils.moveToLocationAtSafeZ(nozzle, location); // center of our box
     	
         // * measure pressure (with no part on nozzle), until it has stabilized
-    	Thread.sleep(300); // TODO 4: obsolete?
+    	//Thread.sleep(300); // TODO 4: obsolete?
     	
     	
     	// * move down until pressure rises significantly
@@ -955,7 +947,7 @@ public class HeapFeeder extends ReferenceFeeder {
 	    	
 	        // * move up to save z. 
 			// on low pressure, we go very slow
-			if(p1-p0 < 0.500 && p1 - p0 >= pressureDelta) { // TODO 4: replace constant
+			if(p1-p0 < 0.25*pressureDelta && p1 - p0 >= pressureDelta) { // TODO 4: replace constant
 				nozzle.moveTo(location, 0.01); // slow move up
 			}else {
 				nozzle.moveTo(location); // normal fast move up
@@ -1297,6 +1289,8 @@ public class HeapFeeder extends ReferenceFeeder {
         
         // Grab the results
         List<RotatedRect> results = (List<RotatedRect>) pipeline.getResult("results").model;
+        
+        pipeline.release();
    
         if (results.isEmpty()) {
             throw new Exception("Feeder " + getName() + ": No pins in side view found, missing part?");
@@ -1347,6 +1341,8 @@ public class HeapFeeder extends ReferenceFeeder {
         // Grab the results
         @SuppressWarnings("unchecked")
 		List<RotatedRect> results = (List<RotatedRect>) pipeline.getResult("results").model;
+        
+        pipeline.release();
         
         ArrayList<Location> ret = new ArrayList<Location>();
         if(results == null) {
