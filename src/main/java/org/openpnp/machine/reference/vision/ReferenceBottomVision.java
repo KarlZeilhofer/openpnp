@@ -136,36 +136,35 @@ public class ReferenceBottomVision implements PartAlignment {
         startLocation = startLocation.add(partHeightLocation)
                                      .derive(null, null, null, 0.);
 
-        	CvPipeline noPreRotPipeline = partSettings.getPipeline();
+        MovableUtils.moveToLocationAtSafeZ(nozzle, startLocation);
 
-        	noPreRotPipeline.setProperty("camera", camera);
-        	noPreRotPipeline.setProperty("nozzle", nozzle);
-        	noPreRotPipeline.process();
+        CvPipeline pipeline = partSettings.getPipeline();
 
         RotatedRect rect = processPipelineAndGetResult(pipeline, camera, part, nozzle);
 
         Logger.debug("Result rect {}", rect);
 
-        	// We assume that the part is never picked more than 45º rotated
-        	// so if OpenCV tells us it's rotated more than 45º we correct
-        	// it. This seems to happen quite a bit when the angle of rotation
-        	// is close to 0.
-        	double angle = rect.angle;
-        	while (Math.abs(angle) > 45) {
-        		if (angle < 0) {
-        			angle += 90;
-        		}
-        		else {
-        			angle -= 90;
-        		}
-        	}
+        // Create the offsets object. This is the physical distance from
+        // the center of the camera to the located part.
+        Location offsets = VisionUtils.getPixelCenterOffsets(camera, rect.center.x, rect.center.y);
 
-        	// Set the angle on the offsets.
-        	offsets = offsets.derive(null, null, null, -angle);
-        	Logger.debug("Final offsets {}", offsets);
+        // We assume that the part is never picked more than 45º rotated
+        // so if OpenCV tells us it's rotated more than 45º we correct
+        // it. This seems to happen quite a bit when the angle of rotation
+        // is close to 0.
+        double angle = rect.angle;
+        while (Math.abs(angle) > 45) {
+            if (angle < 0) {
+                angle += 90;
+            }
+            else {
+                angle -= 90;
+            }
+        }
 
-        	OpenCvUtils.saveDebugImage(ReferenceBottomVision.class, "findOffsets", "result",
-        			noPreRotPipeline.getWorkingImage());
+        // Set the angle on the offsets.
+        offsets = offsets.derive(null, null, null, -angle);
+        Logger.debug("Final offsets {}", offsets);
 
         offsets = offsets.derive(null, null, null, offsets.getRotation());
 
