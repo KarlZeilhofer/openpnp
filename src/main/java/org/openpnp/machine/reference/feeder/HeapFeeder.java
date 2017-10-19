@@ -413,6 +413,7 @@ public class HeapFeeder extends ReferenceFeeder {
 
     @Override
     public void feed(Nozzle nozzle) throws Exception {
+        pickLocation = null;
     	
         Camera camera = nozzle.getHead().getDefaultCamera();
         
@@ -420,59 +421,7 @@ public class HeapFeeder extends ReferenceFeeder {
         		", flipped = " + Integer.toString(currentUpsideDownPartsInDropBox) + 
         		", anything else = " + Integer.toString(currentAnythingElseCountInDropBox) + 
         		", recent Feeder: " + getMachine().getFeeder(mostRecentHeapFeederId).getName());
-        
-    	// TODO 0: implement complete sequence of operations!
-        
-        /*
-         Procedure:
-         
-         
-         if(still parts on separation area)
-         	Clean up
-         
-         
-         Pick new Part:
-         * Turn on the vacuum pump and the valve
-         * Go to location at save Z
-         * measure pressure (with no part on nozzle)
-         * move down until pressure rises significantly
-         * move up to save z. 
-         * follow waypoints to up-camera
-         * do a bottom vision
-			BottomVision:
-			 * goto UpCamera
-	         if(OK)
-	         	* goto picklocation
-	         else if(single part but upside down)
-	         	Flip Chip:
-	         	do
-		         	* goto chipFlipLocation
-		         	* drop the chip
-		         	* top vision
-		         	if (nothing found)
-		         		* throw error
-		         	else
-		         		* pick it up
-		        until success
-		        * goto BottomVision()
-		     else if(multiple parts  on nozzle)
-		     	* goto separationDropLocation
-		     	* drop the parts
-		     	* top vision
-		     	* store number of parts
-		     	* find part with top-side upward
-		     	if( found )
-		     		* pick it up
-		     		* goto BottomVision()
-		     	else if (only upside down parts found)
-		     		* pick one up 
-		     		* goto FlipChip()
-		     	else // nothing usable found
-		     		* throw error
-		     else // no part on nozzle found
-		     	* throw error
-         */
-        
+
         double retries = 3;
         while(mostRecentHeapFeederId.compareTo(this.getId()) != 0 // if other heapfeeder has been active
         		&&
@@ -493,7 +442,6 @@ public class HeapFeeder extends ReferenceFeeder {
         
     	
         retries = 7;
-        pickLocation = null;
 		do {
 			checkForCleanNozzleTip(nozzle);
 			
@@ -701,6 +649,8 @@ public class HeapFeeder extends ReferenceFeeder {
 	}
 
 	private boolean checkForCleanNozzleTip(Nozzle nozzle, boolean doThrow) throws Exception {
+		Logger.info(getName() + ": Check for clean nozzle.");
+		
     	pumpOn();
     	valveOn(nozzle);
     	nozzle.moveToSafeZ();
@@ -1357,18 +1307,25 @@ public class HeapFeeder extends ReferenceFeeder {
         pipeline.setProperty("camera", camera);
         pipeline.setProperty("nozzle", nozzle);
         pipeline.setProperty("feeder", this);
+        
+        // NOTE: this is a tinyG workaround, see this posting here
+        // https://groups.google.com/forum/#!topic/openpnp/7IF0e8nfNdQ
+        nozzle.moveTo(nozzle.getLocation().add(new Location(LengthUnit.Millimeters, 0,0,+0.3,0)));
+        nozzle.moveTo(nozzle.getLocation().add(new Location(LengthUnit.Millimeters, 0,0,-0.3,0)));
+        nozzle.moveTo(nozzle.getLocation().add(new Location(LengthUnit.Millimeters, 0,0,+0.3,0)));
+        nozzle.moveTo(nozzle.getLocation().add(new Location(LengthUnit.Millimeters, 0,0,-0.3,0)));
+
         pipeline.process();
         
         // Grab the results
         @SuppressWarnings("unchecked")
-		List<RotatedRect> results = (List<RotatedRect>) pipeline.getResult("results").model;
+        List<RotatedRect> results = (List<RotatedRect>) pipeline.getResult(VisionUtils.PIPELINE_RESULTS_NAME).model;
         
-        pipeline.release();
         
         ArrayList<Location> ret = new ArrayList<Location>();
         if(results == null) {
-        	Logger.warn(getName() + ": Pipeline returned Null - is this desired?");
-        	throw new Exception(getName() + ": Pipeline returned Null - is this desired?");
+        	Logger.info(getName() + ": Pipeline returned Null - Please Check the pipeline!");
+        	throw new Exception(getName() + ": Pipeline returned Null - Please Check the pipeline!");
         }
         for(RotatedRect result : results) {
         	Location cvLocation = VisionUtils.getPixelLocation(camera, result.center.x, result.center.y);
@@ -1388,6 +1345,7 @@ public class HeapFeeder extends ReferenceFeeder {
 
         MainFrame.get().getCameraViews().getCameraView(camera)
                 .showFilteredImage(OpenCvUtils.toBufferedImage(pipeline.getWorkingImage()), 250);
+        pipeline.release();
         return ret;
     }
 
