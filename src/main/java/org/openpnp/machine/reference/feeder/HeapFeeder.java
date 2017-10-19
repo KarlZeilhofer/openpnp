@@ -402,7 +402,7 @@ public class HeapFeeder extends ReferenceFeeder {
 	    	globalBoxTrayLocations.add(4, new Location(LengthUnit.Millimeters, 266+0*34,168,-7,0));
     	}
     	
-    	Logger.trace("Constructor: this.name = " + name);   	
+    	Logger.trace("@Commit: this.name = " + name);   	
     }
     
 
@@ -416,9 +416,10 @@ public class HeapFeeder extends ReferenceFeeder {
     	
         Camera camera = nozzle.getHead().getDefaultCamera();
         
-        Logger.info("Entered feed with these counts: normal = " + Integer.toString(currentUpsideUpPartsInDropBox) + 
+        Logger.info(getName() + ": feed() with these counts: normal = " + Integer.toString(currentUpsideUpPartsInDropBox) + 
         		", flipped = " + Integer.toString(currentUpsideDownPartsInDropBox) + 
-        		", anything else = " + Integer.toString(currentAnythingElseCountInDropBox));
+        		", anything else = " + Integer.toString(currentAnythingElseCountInDropBox) + 
+        		", recent Feeder: " + getMachine().getFeeder(mostRecentHeapFeederId).getName());
         
     	// TODO 0: implement complete sequence of operations!
         
@@ -472,20 +473,26 @@ public class HeapFeeder extends ReferenceFeeder {
 		     	* throw error
          */
         
-        
-        if(mostRecentHeapFeederId.compareTo(this.getId()) != 0 // if other heapfeeder has been active
+        double retries = 3;
+        while(mostRecentHeapFeederId.compareTo(this.getId()) != 0 // if other heapfeeder has been active
         		&&
         		(currentUpsideUpPartsInDropBox != 0 || 
         		 currentUpsideDownPartsInDropBox !=0 ||
         		 currentAnythingElseCountInDropBox !=0)
-        		) {
+        		 && retries >= 0) {
         	
         	HeapFeeder otherFeeder = (HeapFeeder) getMachine().getFeeder(mostRecentHeapFeederId);
+        	
+        	Logger.info(getName() + ": triggers cleanUp() on feeder " + getMachine().getFeeder(mostRecentHeapFeederId).getName());
         	otherFeeder.cleanUp(nozzle, this);
+        	retries--;
+        }
+        if(retries < 0) {
+        	throw new Exception(getName() + ": failed to clean up");
         }
         
     	
-        double retries = 7;
+        retries = 7;
         pickLocation = null;
 		do {
 			checkForCleanNozzleTip(nozzle);
@@ -552,6 +559,7 @@ public class HeapFeeder extends ReferenceFeeder {
 				currentUpsideUpPartsInDropBox--;
 			}else if(lFlipped != null) {
 				// then we have to do the flipping before
+				Logger.info(getName() + ": Flip part from DropBox, retries = " + Double.toString(retries));
 				
 				pickPart(nozzle, lPick);
 				if(useChipFlipper) { // TODO 3: optimize this cycle - not very reliable
@@ -579,6 +587,7 @@ public class HeapFeeder extends ReferenceFeeder {
     }
     
 	private void slipOffInDropBox(Nozzle nozzle) throws Exception{
+		Logger.info(getName() + ": Slip off in DropBox");
 		MovableUtils.moveToLocationAtSafeZ(nozzle, dropBoxTopLocation());
 
 		valveOff(nozzle);
@@ -588,6 +597,7 @@ public class HeapFeeder extends ReferenceFeeder {
 	}
 
 	private void transportToChipFlipper(Nozzle nozzle) throws Exception {
+		Logger.info(getName() + ": transport to ChipFlipper");
 		nozzle.moveToSafeZ();
 		double saveZ = nozzle.getLocation().getZ();
 		
@@ -615,6 +625,8 @@ public class HeapFeeder extends ReferenceFeeder {
 	}
 
 	public void cleanUp(Nozzle nozzle, HeapFeeder calledBy) throws Exception{
+		Logger.info(getName() + ": Cleaning up parts from feeder " + getName() + ", called by HeapFeeder" + calledBy.getName());
+		
     	Camera camera = nozzle.getHead().getDefaultCamera();
     	currentUpsideUpPartsInDropBox = 0;
     	currentUpsideDownPartsInDropBox = 0;
@@ -732,6 +744,7 @@ public class HeapFeeder extends ReferenceFeeder {
 	}
 	
 	private void transportToExit(Nozzle nozzle) throws Exception {
+		Logger.info(getName() + ": Transport to Exit");
     	nozzle.moveToSafeZ();
     	updateHeapToExitWayPoints();
     	for(Location loc : heapToExitWayPoints) {
@@ -814,6 +827,7 @@ public class HeapFeeder extends ReferenceFeeder {
     }
     
     private void moveToDropLocationAndDrop(Nozzle nozzle) throws Exception {
+    	Logger.info(getName() + ": Transport to DropBox and slip off");
     	mostRecentHeapFeederId = getId();
     	
     	slipOffInDropBox(nozzle);
@@ -867,6 +881,9 @@ public class HeapFeeder extends ReferenceFeeder {
      */
     private void pickNewPartFromBox(Nozzle nozzle) throws Exception {
         // Turn on the vacuum pump and the valve
+    	
+    	Logger.info(getName() + ": Picking new Part for Feeder " + getName() + " from Box" + subBoxName);
+    	
     	pumpOn();
     	valveOn(nozzle);
        	
@@ -938,7 +955,7 @@ public class HeapFeeder extends ReferenceFeeder {
 				
 				Thread.sleep(dwellOnZStep); 
 				p1 = pressure(nozzle);
-				Logger.trace("pressure = {}, delta = {}, dZ = {}", p1, p1-p0, dZ);
+				Logger.trace(getName() + ": pressure = {}, delta = {}, dZ = {}", p1, p1-p0, dZ);
 				
 				if(stirDir == 4) {
 					dZ += zStepOnPickup.getValue();
@@ -971,14 +988,14 @@ public class HeapFeeder extends ReferenceFeeder {
 		p1 = pressure(nozzle);
     	
 		if(retries > 0 && p1-p0 >= pressureDelta) {
-            Logger.trace("Part(s) catched!");
+            Logger.trace(getName() + ": Part(s) catched!");
             
             // Testing Code:
             // throw away the parts 14mm to the left of the feeder position. 
 //            nozzle.moveTo(location.add(new Location(LengthUnit.Millimeters, -14, 0, 0, 0)));
 //            valveOff(nozzle);
 		}else {
-			Logger.trace("Could not catch a part from the heap");
+			Logger.trace(getName() + ": Could not catch a part from the heap");
 			
 			throw new Exception("Feeder " + getName() + ": Could not catch a part from the heap. Pressure limit not reached.");
 		}
@@ -1080,7 +1097,7 @@ public class HeapFeeder extends ReferenceFeeder {
 		location = globalBoxTrayLocations.get(boxTrayId).add(new Location(LengthUnit.Millimeters, dX,dY,0,0));
 		pickLocation = null; // reset picklocation
 		
-		Logger.info("Set Default Location to " + location.toString());
+		Logger.info(getName() + ": Set Default Location to " + location.toString());
 	}
 	
 	private int boxRow() {
@@ -1170,6 +1187,8 @@ public class HeapFeeder extends ReferenceFeeder {
 	}
 
 	private Location getNextUpsideUpLocationInDropbox(Camera camera, Nozzle nozzle) throws Exception {
+		Logger.info(getName() + ": run vision for UpsideUp (normal)");
+		
 		currentAnythingElseCountInDropBox = -1; // who knows?
 		currentUpsideDownPartsInDropBox = -1; // just in case we have an exception
 		currentUpsideUpPartsInDropBox = -1;
@@ -1192,7 +1211,7 @@ public class HeapFeeder extends ReferenceFeeder {
 		ArrayList<Location> locs = getLocationsFromCvPipeline(camera, nozzle, pipeline);
 		if(locs.size() > 0) {
 			currentUpsideUpPartsInDropBox = locs.size();
-			Logger.info(Integer.toString(currentUpsideUpPartsInDropBox) + " parts found in UpsideUp vision");
+			Logger.info(getName() + ": " + Integer.toString(currentUpsideUpPartsInDropBox) + " parts found in UpsideUp vision");
 			return locs.get(0);
 		}else {
 			currentUpsideUpPartsInDropBox = 0;
@@ -1201,6 +1220,7 @@ public class HeapFeeder extends ReferenceFeeder {
 	}
 		
 	private Location getNextUpsideDownLocationInDropbox(Camera camera, Nozzle nozzle) throws Exception {
+		Logger.info(getName() + ": run vision for UpsideDown (flipped)");
 		currentAnythingElseCountInDropBox = -1; // who knows?
 		currentUpsideDownPartsInDropBox = -1; // just in case we have an exception
 		
@@ -1226,7 +1246,7 @@ public class HeapFeeder extends ReferenceFeeder {
 			// correct this value (see conventions for the HeapFeeeder CV pipelines). 
 			// This must not be exact, but is a best guess. 
 			currentUpsideDownPartsInDropBox = partsFound - currentUpsideUpPartsInDropBox;  
-			Logger.info(Integer.toString(partsFound) + " parts found in UpsideDown vision. Probably " + 
+			Logger.info(getName() + ": " + Integer.toString(partsFound) + " parts found in UpsideDown vision. Probably " + 
 					Integer.toString(currentUpsideDownPartsInDropBox) + " parts flipped in the DropBox");
 			
 			return locs.get(0);
@@ -1237,6 +1257,7 @@ public class HeapFeeder extends ReferenceFeeder {
 	}
 		
 	private Location getNextAnythingElseLocationInDropbox(Camera camera, Nozzle nozzle) throws Exception {
+		Logger.info(getName() + ": run vision for AnythingElse");
 		currentAnythingElseCountInDropBox = -1;
 		
 		nozzle.moveToSafeZ();
@@ -1346,9 +1367,8 @@ public class HeapFeeder extends ReferenceFeeder {
         
         ArrayList<Location> ret = new ArrayList<Location>();
         if(results == null) {
-        	Logger.warn("Pipeline returned Null - is this desired?");
-        	return ret; // return empty list
-        	//throw new Exception("Results from CvPipeline is Null! Check Pipeline");
+        	Logger.warn(getName() + ": Pipeline returned Null - is this desired?");
+        	throw new Exception(getName() + ": Pipeline returned Null - is this desired?");
         }
         for(RotatedRect result : results) {
         	Location cvLocation = VisionUtils.getPixelLocation(camera, result.center.x, result.center.y);
