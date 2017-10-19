@@ -1308,12 +1308,8 @@ public class HeapFeeder extends ReferenceFeeder {
         pipeline.setProperty("nozzle", nozzle);
         pipeline.setProperty("feeder", this);
         
-        // NOTE: this is a tinyG workaround, see this posting here
+        // NOTE: we did a Arduino workaround for tinyG workaround, see this posting here
         // https://groups.google.com/forum/#!topic/openpnp/7IF0e8nfNdQ
-        nozzle.moveTo(nozzle.getLocation().add(new Location(LengthUnit.Millimeters, 0,0,+0.3,0)));
-        nozzle.moveTo(nozzle.getLocation().add(new Location(LengthUnit.Millimeters, 0,0,-0.3,0)));
-        nozzle.moveTo(nozzle.getLocation().add(new Location(LengthUnit.Millimeters, 0,0,+0.3,0)));
-        nozzle.moveTo(nozzle.getLocation().add(new Location(LengthUnit.Millimeters, 0,0,-0.3,0)));
 
         pipeline.process();
         
@@ -1324,23 +1320,26 @@ public class HeapFeeder extends ReferenceFeeder {
         
         ArrayList<Location> ret = new ArrayList<Location>();
         if(results == null) {
-        	Logger.info(getName() + ": Pipeline returned Null - Please Check the pipeline!");
-        	throw new Exception(getName() + ": Pipeline returned Null - Please Check the pipeline!");
-        }
-        for(RotatedRect result : results) {
-        	Location cvLocation = VisionUtils.getPixelLocation(camera, result.center.x, result.center.y);
-        	
-        	double angleCorrection=0;
-        	if(result.size.width < result.size.height) {
-        		angleCorrection = 90;
-        	}
-        	
-        	
-            // Get the result's Location
-            // Update the location with the result's rotation
-            cvLocation = cvLocation.derive(null, null, null, -(result.angle+angleCorrection + location.getRotation()));
-            // TODO 3: fix 180° Rotation for better speed
-        	ret.add(cvLocation);
+        	Logger.warn(getName() + ": Pipeline returned Null - Please Check the pipeline!");
+        	//throw new Exception(getName() + ": Pipeline returned Null - Please Check the pipeline!");
+        	// TODO 2: we must ensure, that we really see the dropbox, but there are no parts any more!
+        	// if the pipeline fails for any other reason, it could start to mix the things up. 
+        }else {
+	        for(RotatedRect result : results) {
+	        	Location cvLocation = VisionUtils.getPixelLocation(camera, result.center.x, result.center.y);
+	        	
+	        	double angleCorrection=0;
+	        	if(result.size.width < result.size.height) {
+	        		angleCorrection = 90;
+	        	}
+	        	
+	        	
+	            // Get the result's Location
+	            // Update the location with the result's rotation
+	            cvLocation = cvLocation.derive(null, null, null, -(result.angle+angleCorrection + location.getRotation()));
+	            // TODO 3: fix 180° Rotation for better speed
+	        	ret.add(cvLocation);
+	        }
         }
 
         MainFrame.get().getCameraViews().getCameraView(camera)
