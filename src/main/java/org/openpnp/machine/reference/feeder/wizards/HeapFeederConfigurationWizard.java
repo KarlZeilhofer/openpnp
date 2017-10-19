@@ -463,8 +463,8 @@ public class HeapFeederConfigurationWizard
         addWrappedBinding(feeder, "useAnythingElsePipelineFrom", 	tfUseAnythingElsePipelineFrom, 	"text");
         addWrappedBinding(feeder, "useSideViewPipelineFrom", 		tfUseSideViewPipelineFrom, 		"text");
         
-        addWrappedBinding(feeder, "upsideDownPipelineEnabledFlag", cbEnableUpsideDown, "checked");	
-        addWrappedBinding(feeder, "sideViewPipelineEnabledFlag", cbEnableSideView, "checked");	
+        addWrappedBinding(feeder, "upsideDownPipelineEnabledFlag", cbEnableUpsideDown, "selected");	
+        addWrappedBinding(feeder, "sideViewPipelineEnabledFlag", cbEnableSideView, "selected");	
 
 
         // TODO 5: is this needed? (copy from trayfeeder)

@@ -21,12 +21,21 @@
 
 package org.openpnp.util;
 
+import java.awt.geom.AffineTransform;
+import java.awt.geom.Point2D;
+
+import org.apache.commons.math3.linear.LUDecomposition;
+import org.apache.commons.math3.linear.MatrixUtils;
+import org.apache.commons.math3.linear.RealMatrix;
+import org.openpnp.model.Board;
 import org.openpnp.model.Board.Side;
 import org.openpnp.model.BoardLocation;
 import org.openpnp.model.Length;
+import org.openpnp.model.LengthUnit;
 import org.openpnp.model.Location;
 import org.openpnp.model.Placement;
 import org.openpnp.model.Point;
+import org.pmw.tinylog.Logger;
 
 
 public class Utils2D {
@@ -82,8 +91,21 @@ public class Utils2D {
 
     public static Location calculateBoardPlacementLocation(BoardLocation bl,
             Location placementLocation) {
-        return calculateBoardPlacementLocation(bl.getLocation(), bl.getSide(),
-                bl.getBoard().getDimensions().getX(), placementLocation);
+        if (bl.getPlacementTransform() != null) {
+            Logger.debug("Using placement transform {}", bl.getPlacementTransform());
+            AffineTransform tx = bl.getPlacementTransform();
+            placementLocation = placementLocation.convertToUnits(LengthUnit.Millimeters);
+            Point2D p = new Point2D.Double(placementLocation.getX(), placementLocation.getY());
+            p = tx.transform(p, null);
+            Location l = new Location(LengthUnit.Millimeters, p.getX(), p.getY(), 0, bl.getLocation().getRotation());
+            l = l.convertToUnits(placementLocation.getUnits());
+            Logger.debug("{} -> {}", placementLocation, l);
+            return l;
+        }
+        else {
+            return calculateBoardPlacementLocation(bl.getLocation(), bl.getSide(),
+                    bl.getBoard().getDimensions().getX(), placementLocation);
+        }
     }
 
     public static Location calculateBoardPlacementLocation(Location boardLocation, Side side,
@@ -240,4 +262,32 @@ public class Utils2D {
         }
         return angle;
     }
+    
+    // https://stackoverflow.com/questions/21270892/generate-affinetransform-from-3-points
+    public static AffineTransform deriveAffineTransform(
+            double oldX1, double oldY1,
+            double oldX2, double oldY2,
+            double oldX3, double oldY3,
+            double newX1, double newY1,
+            double newX2, double newY2,
+            double newX3, double newY3) {
+
+        double[][] oldData = { {oldX1, oldX2, oldX3}, {oldY1, oldY2, oldY3}, {1, 1, 1} };
+        RealMatrix oldMatrix = MatrixUtils.createRealMatrix(oldData);
+
+        double[][] newData = { {newX1, newX2, newX3}, {newY1, newY2, newY3} };
+        RealMatrix newMatrix = MatrixUtils.createRealMatrix(newData);
+
+        RealMatrix inverseOld = new LUDecomposition(oldMatrix).getSolver().getInverse();
+        RealMatrix transformationMatrix = newMatrix.multiply(inverseOld);
+
+        double m00 = transformationMatrix.getEntry(0, 0);
+        double m01 = transformationMatrix.getEntry(0, 1);
+        double m02 = transformationMatrix.getEntry(0, 2);
+        double m10 = transformationMatrix.getEntry(1, 0);
+        double m11 = transformationMatrix.getEntry(1, 1);
+        double m12 = transformationMatrix.getEntry(1, 2);
+
+        return new AffineTransform(m00, m10, m01, m11, m02, m12);       
+    }        
 }

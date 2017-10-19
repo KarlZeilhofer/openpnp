@@ -106,8 +106,44 @@ Our BoxTrays for testing have 2 columns and 8 Rows (A1..B8).
 
 The nozzle takes the parts only from the center of one Box, since there is 
 only very little clearance for the nozzles collar (12mmx12mm vs. 10.5mm diameter). 
+Minor xy movement is added to mix them up a bit. Otherwise we dig hole in the center
+and push the parts then very hard. 
 
+
+Conventions to the CV Pipelines:
+
+UpsideUp:
+	must detect only parts, which have their upside upwards. 
+	They are ready for placement (with optional bottom vision)
+	The ROI (region of interest) should be clipped to the floor of the 
+	DropBox. A sanity check is done anyway for the nozzle movement before
+	picking the parts up. 
+
+UpsideDown:
+	must return all parts which have to be flipped before placement. 
+	It should return also the upside up parts with a very high true positives rate
+	and alow false negative rate. This leads to a speed improvement: 
+	When we process the UpsideUp PL, we also process the Upside Down, to let
+	the feeder know, if we have to fetch new parts from the Box or if we could expect
+	flipped parts in the DropBox. 
+	The ROI must be clipped again to the diameter of the floor 
+	of the DropBox. 
+
+AnythingElse:
+	The ROI is expanded, so we can detect something also on the slopes of the
+	DropBox. It must return everything, that doesn't belong to the DropBox itself. 
 	
+SideView:
+	This vision is used to detect flipped SOT23 for example. From the top view
+	upside up and upside down parts are nearly not distinguishable - even for 
+	the human eye. 
+	The parts are brought to the chip flipper, where we also have a mirror directed to 
+	the put location. The horizontal centerline of the image must be aligned with
+	the vertical center of the part under test. It must return rotated rects for
+	the bright pins, which normally should only appear above or below the centerline
+	of the image. No returns or mixed returns lead to an exception. 
+
+
 
  */
 
@@ -176,6 +212,10 @@ public class HeapFeeder extends ReferenceFeeder {
     private String useSideViewPipelineFrom = new String(); // if this string is empty, we use our own pipeline. 
     @Attribute(required = false)
     private boolean sideViewPipelineEnabledFlag = false;
+    @Attribute(required = false)
+    private boolean useDropBoxFlipper = true; // TODO 3: GUI
+    @Attribute(required = false)
+    private boolean useChipFlipper = false; // TODO 3: GUI 
  
    
     public boolean isUpsideDownPipelineEnabledFlag() {
@@ -239,10 +279,14 @@ public class HeapFeeder extends ReferenceFeeder {
      * 
      */
  // TODO 4: dropBoxLocation attribute
-    private Location dropBoxLocation() throws Exception{
-    	Location floor = dropBoxFloorLocation();
-    	double dropHeight = 16; 
-    	return floor.add(new Location(LengthUnit.Millimeters, 0.0,0.0, dropHeight, 0.0)); // TODO 5: make drop hight configurable
+    private Location dropBoxTopLocation() throws Exception{
+    	ReferenceFeeder f = (ReferenceFeeder)(getMachine().getFeederByName("position-dropbox-top-center"));
+    	
+    	if(f == null) {
+    		throw new Exception("Missing Feeder position-dropbox-floor for position of DropBox");
+    	}
+    	
+    	return f.getLocation();
     }
 
     
@@ -275,17 +319,36 @@ public class HeapFeeder extends ReferenceFeeder {
      * 
      * @see chipFlipGetLocation
      */
-    static private Location chipFlipPutLocation;
+    private Location chipFlipperPutLocation() throws Exception {
+    	ReferenceFeeder f = (ReferenceFeeder)(getMachine().getFeederByName("position-chipflipper-1-put"));
+    	
+    	if(f == null) {
+    		throw new Exception("Missing Feeder position-chipflipper-3-get for position of ChipFlipper's get surface");
+    	}
+    	
+    	return f.getLocation();
+    }
 
     /**
      * The chipFlipGetLocation is a fixed location shared by all feeders of this type. 
      * 
      * After flipping the chip by the chip flipper, it is fetched from here. 
-     * We assume a static location, so no vision is needed here.
+     * We assume a static location, so no vision is used here.
+     * 
+     * The z-value is the surface where the parts lays on. 
      * 
      * @see chipFlipPutLocation
      */
-    static private Location chipFlipGetLocation;
+    private Location chipFlipperGetLocation() throws Exception {
+    	ReferenceFeeder f = (ReferenceFeeder)(getMachine().getFeederByName("position-chipflipper-3-get"));
+    	
+    	if(f == null) {
+    		throw new Exception("Missing Feeder position-chipflipper-3-get for position of ChipFlipper's get surface");
+    	}
+    	
+    	return f.getLocation();
+    	
+    }
     
     
     
@@ -339,7 +402,7 @@ public class HeapFeeder extends ReferenceFeeder {
 	    	globalBoxTrayLocations.add(4, new Location(LengthUnit.Millimeters, 266+0*34,168,-7,0));
     	}
     	
-    	Logger.trace("Constructor: this.name = " + name);   	
+    	Logger.trace("@Commit: this.name = " + name);   	
     }
     
 
@@ -350,80 +413,39 @@ public class HeapFeeder extends ReferenceFeeder {
 
     @Override
     public void feed(Nozzle nozzle) throws Exception {
+        pickLocation = null;
     	
         Camera camera = nozzle.getHead().getDefaultCamera();
         
-    	// TODO 0: implement complete sequence of operations!
-        
-        /*
-         Procedure:
-         
-         
-         if(still parts on separation area)
-         	Clean up
-         
-         
-         Pick new Part:
-         * Turn on the vacuum pump and the valve
-         * Go to location at save Z
-         * measure pressure (with no part on nozzle)
-         * move down until pressure rises significantly
-         * move up to save z. 
-         * follow waypoints to up-camera
-         * do a bottom vision
-			BottomVision:
-			 * goto UpCamera
-	         if(OK)
-	         	* goto picklocation
-	         else if(single part but upside down)
-	         	Flip Chip:
-	         	do
-		         	* goto chipFlipLocation
-		         	* drop the chip
-		         	* top vision
-		         	if (nothing found)
-		         		* throw error
-		         	else
-		         		* pick it up
-		        until success
-		        * goto BottomVision()
-		     else if(multiple parts  on nozzle)
-		     	* goto separationDropLocation
-		     	* drop the parts
-		     	* top vision
-		     	* store number of parts
-		     	* find part with top-side upward
-		     	if( found )
-		     		* pick it up
-		     		* goto BottomVision()
-		     	else if (only upside down parts found)
-		     		* pick one up 
-		     		* goto FlipChip()
-		     	else // nothing usable found
-		     		* throw error
-		     else // no part on nozzle found
-		     	* throw error
-         */
-        
-        
-        if(mostRecentHeapFeederId.compareTo(this.getId()) != 0 // if other heapfeeder has been active
+        Logger.info(getName() + ": feed() with these counts: normal = " + Integer.toString(currentUpsideUpPartsInDropBox) + 
+        		", flipped = " + Integer.toString(currentUpsideDownPartsInDropBox) + 
+        		", anything else = " + Integer.toString(currentAnythingElseCountInDropBox) + 
+        		", recent Feeder: " + getMachine().getFeeder(mostRecentHeapFeederId).getName());
+
+        double retries = 3;
+        while(mostRecentHeapFeederId.compareTo(this.getId()) != 0 // if other heapfeeder has been active
         		&&
         		(currentUpsideUpPartsInDropBox != 0 || 
         		 currentUpsideDownPartsInDropBox !=0 ||
         		 currentAnythingElseCountInDropBox !=0)
-        		) {
+        		 && retries >= 0) {
         	
         	HeapFeeder otherFeeder = (HeapFeeder) getMachine().getFeeder(mostRecentHeapFeederId);
+        	
+        	Logger.info(getName() + ": triggers cleanUp() on feeder " + getMachine().getFeeder(mostRecentHeapFeederId).getName());
         	otherFeeder.cleanUp(nozzle, this);
+        	retries--;
+        }
+        if(retries < 0) {
+        	throw new Exception(getName() + ": failed to clean up");
         }
         
     	
-        int retries = 0;
-        pickLocation = null;
+        retries = 7;
 		do {
 			checkForCleanNozzleTip(nozzle);
 			
-			if(currentUpsideUpPartsInDropBox <= 0) {
+			if(currentUpsideUpPartsInDropBox <= 0 && currentUpsideDownPartsInDropBox <= 0) {
 				pickNewPartFromBox(nozzle);
 				transportToExit(nozzle);
 				moveToDropLocationAndDrop(nozzle);
@@ -434,43 +456,141 @@ public class HeapFeeder extends ReferenceFeeder {
 					// getNextUpsideUpLocationInDropbox() below - the reason is unclear!
 			}
 
-			Location l;
-			l = getNextUpsideUpLocationInDropbox(camera, nozzle);
-			if (l != null) {
+			Location lNormal=null;
+			Location lFlipped=null;
+			Location lPick=null;
+			//int recentUpsideUpPartsInDropBox = currentUpsideUpPartsInDropBox;
+			
+			lNormal = getNextUpsideUpLocationInDropbox(camera, nozzle);
+			if(upsideDownPipelineEnabledFlag == true 
+					&& currentUpsideUpPartsInDropBox <= 2) { // bother the upside down pipeline only if it is the 
+						// last normal part we are taking now, or we didn't find an upside up part any more. 
+				
+				// call this also to update the number of flipped chips. 
+				// so we can avoid a fetch in the next cycle, if we have flipped chips. 
+				lFlipped = getNextUpsideDownLocationInDropbox(camera, nozzle); 
+			}
+			
+
+			if (lNormal != null) {
+				lPick = lNormal;
+			}else if(lFlipped != null) {
+				lPick = lFlipped;
+			}
+			
+			if(lPick != null) {
 				// sanity check: location must be within 7mm radius of the center of the dropbox
-				if(l.getLinearDistanceTo(dropBoxLocation()) > 7.5) { // TODO 4: set attribute for dropbox radius
+				if(lPick.getLinearDistanceTo(dropBoxTopLocation()) > 7.5) { // TODO 4: set attribute for dropbox radius
 					throw new Exception("Pick location for upside up parts is out of the floor of the DropBox. "+
 							"Check coordinates and/or vision pipeline");
-				}else if(l.getLinearDistanceTo(dropBoxLocation()) > 7) { // TODO 4: set attribute for dropbox radius
+				}else if(lPick.getLinearDistanceTo(dropBoxTopLocation()) > 7) { // TODO 4: set attribute for dropbox radius
 					//limit the radius to 7mm
-					Location c = dropBoxLocation();
-					double r = l.getLinearDistanceTo(dropBoxLocation());
+					Location c = dropBoxTopLocation();
+					double r = lPick.getLinearDistanceTo(dropBoxTopLocation());
 					
-					Location delta = l.subtract(c);
+					Location delta = lPick.subtract(c);
 					delta = delta.multiply(1/r, 1/r, 0, 0).multiply(7,  7,  0,  0); // TODO replace 7
 					
 					Location clipped = c.add(delta);
-					l = clipped;
+					lPick = clipped;
 				}
-
-				
-				pickLocation = l.derive(null, null, dropBoxFloorLocation().getZ() + part.getHeight().getValue(), null);
-				currentUpsideUpPartsInDropBox--;
+				lPick = lPick.derive(null, null, dropBoxFloorLocation().getZ() + part.getHeight().getValue(), null);
 			}
 			
-			retries++;
-		} while (pickLocation == null && retries < 3);
+			// now we know, where to pick from, but should we flip or do a side vision before exit?
+			if(lNormal != null) {
+				if(sideViewPipelineEnabledFlag == false) {
+					pickLocation = lPick; // finished
+				}else {
+					// TODO 2: implement side view cycle
+				}
+				currentUpsideUpPartsInDropBox--;
+			}else if(lFlipped != null) {
+				// then we have to do the flipping before
+				Logger.info(getName() + ": Flip part from DropBox, retries = " + Double.toString(retries));
+				
+				pickPart(nozzle, lPick);
+				if(useChipFlipper) { // TODO 3: optimize this cycle - not very reliable
+					transportToChipFlipper(nozzle);
+					flip();
+					pickLocation = chipFlipperGetLocation().add(
+							new Location(LengthUnit.Millimeters, 0.0,0.0,getPart().getHeight().getValue()-0.5, 0.0)); // TODO 1: optimize value   
+							// TODO 4: constant
+				}else if(useDropBoxFlipper) {
+					slipOffInDropBox(nozzle);
+					retries += 0.5; // try it more often with the DropBoxFlipper
+				}
+			}
+
+			retries--;
+		} while (pickLocation == null && retries > 0);
+		
+		if(retries <= 0) {
+			throw new Exception("HeapFeeder failed to feed a new part after many retries");
+		}
         
         
         
         // TOOD 0: use chip flipper
     }
     
-    public void cleanUp(Nozzle nozzle, HeapFeeder calledBy) throws Exception{
+	private void slipOffInDropBox(Nozzle nozzle) throws Exception{
+		Logger.info(getName() + ": Slip off in DropBox");
+		MovableUtils.moveToLocationAtSafeZ(nozzle, dropBoxTopLocation());
+
+		valveOff(nozzle);
+		nozzle.moveTo(dropBoxTopLocation().add(
+				new Location(LengthUnit.Millimeters, -15, 0,0,0))); // TODO 4: constant
+		nozzle.moveToSafeZ();
+	}
+
+	private void transportToChipFlipper(Nozzle nozzle) throws Exception {
+		Logger.info(getName() + ": transport to ChipFlipper");
+		nozzle.moveToSafeZ();
+		double saveZ = nozzle.getLocation().getZ();
+		
+		nozzle.moveTo(chipFlipperPutLocation().derive(null,  null,  saveZ, null));
+		
+		double h = getPart().getHeight().getValue();
+		if(h < 0.6) {
+			h = 0.6; // we have to slip off the part against an obstacle, which is 0.5mm high
+			// TODO 4: replace constant
+		}
+		
+		nozzle.moveTo(chipFlipperPutLocation().add(
+				new Location(LengthUnit.Millimeters, 0,0, h, 0)));
+		
+		valveOff(nozzle);
+		
+		nozzle.moveTo(nozzle.getLocation().add(
+				new Location(LengthUnit.Millimeters, 0, 5, 0, 0)), 0.005); // TODO 4: replace this constant
+		
+		nozzle.moveToSafeZ(); // finished	
+		
+		// move to park position (out of the way of the chip flippers motion volume)
+		nozzle.moveTo(nozzle.getLocation().add(
+				new Location(LengthUnit.Millimeters, 40, 0, 0, 0))); // TODO 4: replace this constant
+	}
+
+	public void cleanUp(Nozzle nozzle, HeapFeeder calledBy) throws Exception{
+		Logger.info(getName() + ": Cleaning up parts from feeder " + getName() + ", called by HeapFeeder" + calledBy.getName());
+		
     	Camera camera = nozzle.getHead().getDefaultCamera();
     	currentUpsideUpPartsInDropBox = 0;
     	currentUpsideDownPartsInDropBox = 0;
-    	
+ 
+    	// direct clean up, when part is already on the nozzle
+		if(nozzle.getPart() != null && nozzle.getPart().getId() == this.getPart().getId()) {
+			transportToBox(nozzle);
+			valveOff(nozzle);			
+			// slip off:
+			double dX = boxTrayInnerSizeX.getValue()/2 + 2; // default to right exit
+			if(boxColumn() == 0) { // left exit
+				dX *= -1; 
+			}
+			nozzle.moveTo(location);
+			nozzle.moveTo(location.add(new Location(LengthUnit.Millimeters, dX, 0, 0, 0)));
+		}
     	do {
     		checkForCleanNozzleTip(nozzle);
 
@@ -480,13 +600,13 @@ public class HeapFeeder extends ReferenceFeeder {
     		l = getNextAnythingElseLocationInDropbox(camera, nozzle);
     		if (l != null) {
 				// sanity check: location must be within 7mm radius of the center of the dropbox
-				if(l.getLinearDistanceTo(dropBoxLocation()) > 7.5) { // TODO 4: set attribute for dropbox radius
-    				throw new Exception("Cleaning Up, called by HeapFeeder" + calledBy.getName() + ": Pick location for Anything Else parts is out of the floor of the DropBox. "+
+				if(l.getLinearDistanceTo(dropBoxTopLocation()) > 7.5) { // TODO 4: set attribute for dropbox radius
+    				throw new Exception("Cleaning up parts from feeder " + getName() + ", called by HeapFeeder" + calledBy.getName() + ": Pick location for Anything Else parts is out of the floor of the DropBox. "+
     						"Check coordinates and/or vision pipeline");
-				}else if(l.getLinearDistanceTo(dropBoxLocation()) > 7) { // TODO 4: set attribute for dropbox radius
+				}else if(l.getLinearDistanceTo(dropBoxTopLocation()) > 7) { // TODO 4: set attribute for dropbox radius
 					//limit the radius to 7mm
-					Location c = dropBoxLocation();
-					double r = l.getLinearDistanceTo(dropBoxLocation());
+					Location c = dropBoxTopLocation();
+					double r = l.getLinearDistanceTo(dropBoxTopLocation());
 					
 					Location delta = l.subtract(c);
 					delta = delta.multiply(1/r, 1/r, 0, 0).multiply(7,  7,  0,  0); // TODO replace 7
@@ -502,23 +622,23 @@ public class HeapFeeder extends ReferenceFeeder {
     			valveOff(nozzle);
     			
     			// spend some time with forces on the part, so it easier drops down. 
-    			nozzle.moveTo(location);
-    			nozzle.moveToSafeZ();
-    			nozzle.moveTo(location);
-    			nozzle.moveToSafeZ();
-    			nozzle.moveTo(location);
+//    			nozzle.moveTo(location);
+//    			nozzle.moveToSafeZ();
+//    			nozzle.moveTo(location);
+//    			nozzle.moveToSafeZ();
+//    			nozzle.moveTo(location);
 
-    			if(checkForCleanNozzleTip(nozzle, false) == false) {
-        			valveOff(nozzle);
+//    			if(checkForCleanNozzleTip(nozzle, false) == false) {
+//        			valveOff(nozzle);
 
-    				// Abstreifen!
+    				// slop off
     				double dX = boxTrayInnerSizeX.getValue()/2 + 2; // default to right exit
     				if(boxColumn() == 0) { // left exit
     					dX *= -1; 
     				}
         			nozzle.moveTo(location);
     				nozzle.moveTo(location.add(new Location(LengthUnit.Millimeters, dX, 0, 0, 0)));
-    			}
+//    			}
     			
     		}
     	} while(currentAnythingElseCountInDropBox != 0);
@@ -529,6 +649,8 @@ public class HeapFeeder extends ReferenceFeeder {
 	}
 
 	private boolean checkForCleanNozzleTip(Nozzle nozzle, boolean doThrow) throws Exception {
+		Logger.info(getName() + ": Check for clean nozzle.");
+		
     	pumpOn();
     	valveOn(nozzle);
     	nozzle.moveToSafeZ();
@@ -572,6 +694,7 @@ public class HeapFeeder extends ReferenceFeeder {
 	}
 	
 	private void transportToExit(Nozzle nozzle) throws Exception {
+		Logger.info(getName() + ": Transport to Exit");
     	nozzle.moveToSafeZ();
     	updateHeapToExitWayPoints();
     	for(Location loc : heapToExitWayPoints) {
@@ -654,68 +777,53 @@ public class HeapFeeder extends ReferenceFeeder {
     }
     
     private void moveToDropLocationAndDrop(Nozzle nozzle) throws Exception {
+    	Logger.info(getName() + ": Transport to DropBox and slip off");
     	mostRecentHeapFeederId = getId();
     	
-    	Location nozLoc;
-		double dX,dY,dZ;
-		double saveZ = 0; // TODO 4: saveZ
-		
-		// TODO 3: strip off parts instead of a simple drop --> much more reliable
-		
-		// * move to final dropbox position
-		nozzle.moveToSafeZ();  
-		nozLoc = dropBoxLocation().derive(null, null, saveZ, null); // get drop box location at saveZ
-		dX=0; 
-		dY=0;
-		dZ=0;
-		nozLoc = nozLoc.add(new Location(LengthUnit.Millimeters, dX,dY,dZ,0));
-		nozzle.moveTo(nozLoc); // move above drop location at saveZ
-		
-		Double x=null; 
-		Double y=null;
-		Double z = dropBoxLocation().getZ();
-		nozLoc = nozLoc.derive(x, y, z, null);
-		nozzle.moveTo(nozLoc); // go down to drop height. 
-		
-
-		// * drop the part(s)
-		valveOff(nozzle);
-		
-		// dummy pick location for testing with a "real" pnp-job
+    	slipOffInDropBox(nozzle);
+    	return; 
+    	
+//    	Location nozLoc;
+//		double dX,dY,dZ;
+//		double saveZ = 0; // TODO 4: saveZ
+//		
+//		// TODO 3: strip off parts instead of a simple drop --> much more reliable
+//		
+//		// * move to final dropbox position
+//		nozzle.moveToSafeZ();  
+//		nozLoc = dropBoxTopLocation().derive(null, null, saveZ, null); // get drop box location at saveZ
+//		dX=0; 
+//		dY=0;
+//		dZ=0;
+//		nozLoc = nozLoc.add(new Location(LengthUnit.Millimeters, dX,dY,dZ,0));
+//		nozzle.moveTo(nozLoc); // move above drop location at saveZ
+//		
+//		Double x=null; 
+//		Double y=null;
+//		Double z = dropBoxTopLocation().getZ();
+//		nozLoc = nozLoc.derive(x, y, z, null);
+//		nozzle.moveTo(nozLoc); // go down to drop height. 
+//		
+//
+//		// * drop the part(s)
+//		valveOff(nozzle);
     }
     
     private void dummyMove(Nozzle nozzle) throws Exception {
     	// TODO 3: speed: find the essential line of code
     	mostRecentHeapFeederId = getId();
     	
-    	Location nozLoc;
-		double dX,dY,dZ;
-		double saveZ = 0; // TODO 4: saveZ
-		
-		// * move to final dropbox position
-		nozzle.moveToSafeZ();  
-		nozLoc = dropBoxLocation().derive(null, null, saveZ, null); // get drop box location at saveZ
-		dX=0; 
-		dY=0;
-		dZ=0;
-		nozLoc = nozLoc.add(new Location(LengthUnit.Millimeters, dX,dY,dZ,0));
-		nozzle.moveTo(nozLoc); // move above drop location at saveZ
-		
-		Double x=null; 
-		Double y=null;
-		Double z = dropBoxLocation().getZ();
-		nozLoc = nozLoc.derive(x, y, z, null);
-		nozzle.moveTo(nozLoc); // go down to drop height. 
-		
-
-		// * drop the part(s)
+    	//MovableUtils.moveToLocationAtSafeZ(nozzle, dropBoxTopLocation());
+    	//Thread.sleep(1000);
+    	
 		valveOff(nozzle);
 		
 		// dummy pick location for testing with a "real" pnp-job
     }
     
     /**
-     * We assume that the separation area is cleaned up!
+     * We assume that the DropBox is cleaned up or has only parts from this feeder (only Anything Else)
+     * We do not pick new Parts, if in the last top vision flipped parts were detected. 
      * @param camera
      * @param nozzle
      * @return
@@ -723,13 +831,16 @@ public class HeapFeeder extends ReferenceFeeder {
      */
     private void pickNewPartFromBox(Nozzle nozzle) throws Exception {
         // Turn on the vacuum pump and the valve
+    	
+    	Logger.info(getName() + ": Picking new Part for Feeder " + getName() + " from Box" + subBoxName);
+    	
     	pumpOn();
     	valveOn(nozzle);
        	
     	MovableUtils.moveToLocationAtSafeZ(nozzle, location); // center of our box
     	
         // * measure pressure (with no part on nozzle), until it has stabilized
-    	Thread.sleep(300); // TODO 4: obsolete?
+    	//Thread.sleep(300); // TODO 4: obsolete?
     	
     	
     	// * move down until pressure rises significantly
@@ -786,9 +897,15 @@ public class HeapFeeder extends ReferenceFeeder {
 				l = lStart.add(dLocation);
 				
 				nozzle.moveTo(l);
+				
+				if(nozzle.getLocation().getZ() < (-42.7+1+getPart().getHeight().getValue())) { // TODO 4: replace constant
+					throw new Exception("Box is empty!");
+				}
+				
+				
 				Thread.sleep(dwellOnZStep); 
 				p1 = pressure(nozzle);
-				Logger.trace("pressure = {}, delta = {}, dZ = {}", p1, p1-p0, dZ);
+				Logger.trace(getName() + ": pressure = {}, delta = {}, dZ = {}", p1, p1-p0, dZ);
 				
 				if(stirDir == 4) {
 					dZ += zStepOnPickup.getValue();
@@ -797,7 +914,7 @@ public class HeapFeeder extends ReferenceFeeder {
 	    	
 	        // * move up to save z. 
 			// on low pressure, we go very slow
-			if(p1-p0 < 0.500 && p1 - p0 >= pressureDelta) { // TODO 4: replace constant
+			if(p1-p0 < 0.25*pressureDelta && p1 - p0 >= pressureDelta) { // TODO 4: replace constant
 				nozzle.moveTo(location, 0.01); // slow move up
 			}else {
 				nozzle.moveTo(location); // normal fast move up
@@ -821,14 +938,14 @@ public class HeapFeeder extends ReferenceFeeder {
 		p1 = pressure(nozzle);
     	
 		if(retries > 0 && p1-p0 >= pressureDelta) {
-            Logger.trace("Part(s) catched!");
+            Logger.trace(getName() + ": Part(s) catched!");
             
             // Testing Code:
             // throw away the parts 14mm to the left of the feeder position. 
 //            nozzle.moveTo(location.add(new Location(LengthUnit.Millimeters, -14, 0, 0, 0)));
 //            valveOff(nozzle);
 		}else {
-			Logger.trace("Could not catch a part from the heap");
+			Logger.trace(getName() + ": Could not catch a part from the heap");
 			
 			throw new Exception("Feeder " + getName() + ": Could not catch a part from the heap. Pressure limit not reached.");
 		}
@@ -842,6 +959,10 @@ public class HeapFeeder extends ReferenceFeeder {
     
     private void pumpOff() throws Exception {
     	getDriver().actuate(pump() , false); 
+    }
+    
+    private void flip() throws Exception {
+    	getDriver().actuate(chipFlipper() , true); 
     }
     
     private void valveOn(Nozzle nozzle) throws Exception {
@@ -868,6 +989,10 @@ public class HeapFeeder extends ReferenceFeeder {
     
     private ReferenceActuator pump() {
     	return getActuator(pumpName);
+    }
+    
+    private ReferenceActuator chipFlipper() {
+    	return getActuator("ChipFlipper"); // TODO 4: constant
     }
     
     private ReferenceActuator valve(Nozzle nozzle) {
@@ -922,7 +1047,7 @@ public class HeapFeeder extends ReferenceFeeder {
 		location = globalBoxTrayLocations.get(boxTrayId).add(new Location(LengthUnit.Millimeters, dX,dY,0,0));
 		pickLocation = null; // reset picklocation
 		
-		Logger.info("Set Default Location to " + location.toString());
+		Logger.info(getName() + ": Set Default Location to " + location.toString());
 	}
 	
 	private int boxRow() {
@@ -1012,12 +1137,14 @@ public class HeapFeeder extends ReferenceFeeder {
 	}
 
 	private Location getNextUpsideUpLocationInDropbox(Camera camera, Nozzle nozzle) throws Exception {
+		Logger.info(getName() + ": run vision for UpsideUp (normal)");
+		
 		currentAnythingElseCountInDropBox = -1; // who knows?
 		currentUpsideDownPartsInDropBox = -1; // just in case we have an exception
 		currentUpsideUpPartsInDropBox = -1;
 		
 		nozzle.moveToSafeZ();
-		camera.moveTo(dropBoxLocation());
+		camera.moveTo(dropBoxTopLocation());
 		
 		CvPipeline pipeline = null;
 		if(useUpsideUpPipelineFrom.isEmpty()) {
@@ -1034,6 +1161,7 @@ public class HeapFeeder extends ReferenceFeeder {
 		ArrayList<Location> locs = getLocationsFromCvPipeline(camera, nozzle, pipeline);
 		if(locs.size() > 0) {
 			currentUpsideUpPartsInDropBox = locs.size();
+			Logger.info(getName() + ": " + Integer.toString(currentUpsideUpPartsInDropBox) + " parts found in UpsideUp vision");
 			return locs.get(0);
 		}else {
 			currentUpsideUpPartsInDropBox = 0;
@@ -1042,11 +1170,12 @@ public class HeapFeeder extends ReferenceFeeder {
 	}
 		
 	private Location getNextUpsideDownLocationInDropbox(Camera camera, Nozzle nozzle) throws Exception {
+		Logger.info(getName() + ": run vision for UpsideDown (flipped)");
 		currentAnythingElseCountInDropBox = -1; // who knows?
 		currentUpsideDownPartsInDropBox = -1; // just in case we have an exception
 		
 		camera.moveToSafeZ();
-		camera.moveTo(dropBoxLocation());
+		camera.moveTo(dropBoxTopLocation());
 		
 		CvPipeline pipeline = null;
 		if(useUpsideDownPipelineFrom.isEmpty()) {
@@ -1062,7 +1191,14 @@ public class HeapFeeder extends ReferenceFeeder {
 		
 		ArrayList<Location> locs = getLocationsFromCvPipeline(camera, nozzle, pipeline);
 		if(locs.size() > 0) {
-			currentUpsideDownPartsInDropBox = locs.size();
+			int partsFound =  locs.size();
+			
+			// correct this value (see conventions for the HeapFeeeder CV pipelines). 
+			// This must not be exact, but is a best guess. 
+			currentUpsideDownPartsInDropBox = partsFound - currentUpsideUpPartsInDropBox;  
+			Logger.info(getName() + ": " + Integer.toString(partsFound) + " parts found in UpsideDown vision. Probably " + 
+					Integer.toString(currentUpsideDownPartsInDropBox) + " parts flipped in the DropBox");
+			
 			return locs.get(0);
 		}else {
 			currentUpsideDownPartsInDropBox = 0;
@@ -1071,10 +1207,11 @@ public class HeapFeeder extends ReferenceFeeder {
 	}
 		
 	private Location getNextAnythingElseLocationInDropbox(Camera camera, Nozzle nozzle) throws Exception {
+		Logger.info(getName() + ": run vision for AnythingElse");
 		currentAnythingElseCountInDropBox = -1;
 		
 		nozzle.moveToSafeZ();
-		camera.moveTo(dropBoxLocation());
+		camera.moveTo(dropBoxTopLocation());
 		
 		CvPipeline pipeline = null;
 		if(useUpsideUpPipelineFrom.isEmpty()) {
@@ -1101,7 +1238,7 @@ public class HeapFeeder extends ReferenceFeeder {
 	private boolean isPartInSideViewUpsideDown(Camera camera, Nozzle nozzle) throws Exception {
 		
 		nozzle.moveToSafeZ();
-		camera.moveTo(dropBoxLocation());
+		camera.moveTo(dropBoxTopLocation());
 		
 		CvPipeline pipeline = null;
 		if(useUpsideUpPipelineFrom.isEmpty()) {
@@ -1123,6 +1260,8 @@ public class HeapFeeder extends ReferenceFeeder {
         
         // Grab the results
         List<RotatedRect> results = (List<RotatedRect>) pipeline.getResult("results").model;
+        
+        pipeline.release();
    
         if (results.isEmpty()) {
             throw new Exception("Feeder " + getName() + ": No pins in side view found, missing part?");
@@ -1168,34 +1307,44 @@ public class HeapFeeder extends ReferenceFeeder {
         pipeline.setProperty("camera", camera);
         pipeline.setProperty("nozzle", nozzle);
         pipeline.setProperty("feeder", this);
+        
+        // NOTE: we did a Arduino workaround for tinyG workaround, see this posting here
+        // https://groups.google.com/forum/#!topic/openpnp/7IF0e8nfNdQ
+
         pipeline.process();
         
         // Grab the results
         @SuppressWarnings("unchecked")
-		List<RotatedRect> results = (List<RotatedRect>) pipeline.getResult("results").model;
+        List<RotatedRect> results = (List<RotatedRect>) pipeline.getResult(VisionUtils.PIPELINE_RESULTS_NAME).model;
+        
         
         ArrayList<Location> ret = new ArrayList<Location>();
         if(results == null) {
-        	throw new Exception("Results from CvPipeline is Null! Check Pipeline");
-        }
-        for(RotatedRect result : results) {
-        	Location cvLocation = VisionUtils.getPixelLocation(camera, result.center.x, result.center.y);
-        	
-        	double angleCorrection=0;
-        	if(result.size.width < result.size.height) {
-        		angleCorrection = 90;
-        	}
-        	
-        	
-            // Get the result's Location
-            // Update the location with the result's rotation
-            cvLocation = cvLocation.derive(null, null, null, -(result.angle+angleCorrection + location.getRotation()));
-            // TODO 3: fix 180° Rotation for better speed
-        	ret.add(cvLocation);
+        	Logger.warn(getName() + ": Pipeline returned Null - Please Check the pipeline!");
+        	//throw new Exception(getName() + ": Pipeline returned Null - Please Check the pipeline!");
+        	// TODO 2: we must ensure, that we really see the dropbox, but there are no parts any more!
+        	// if the pipeline fails for any other reason, it could start to mix the things up. 
+        }else {
+	        for(RotatedRect result : results) {
+	        	Location cvLocation = VisionUtils.getPixelLocation(camera, result.center.x, result.center.y);
+	        	
+	        	double angleCorrection=0;
+	        	if(result.size.width < result.size.height) {
+	        		angleCorrection = 90;
+	        	}
+	        	
+	        	
+	            // Get the result's Location
+	            // Update the location with the result's rotation
+	            cvLocation = cvLocation.derive(null, null, null, -(result.angle+angleCorrection + location.getRotation()));
+	            // TODO 3: fix 180° Rotation for better speed
+	        	ret.add(cvLocation);
+	        }
         }
 
         MainFrame.get().getCameraViews().getCameraView(camera)
                 .showFilteredImage(OpenCvUtils.toBufferedImage(pipeline.getWorkingImage()), 250);
+        pipeline.release();
         return ret;
     }
 
@@ -1350,7 +1499,7 @@ public class HeapFeeder extends ReferenceFeeder {
         	Camera cam = getMachine().getDefaultHead().getDefaultCamera();
         	Nozzle nozzle = getMachine().getDefaultHead().getDefaultNozzle();
         	nozzle.moveToSafeZ();
-        	cam.moveTo(dropBoxLocation());
+        	cam.moveTo(dropBoxTopLocation());
     	}catch(Exception e) {
     		// TODO 4: what to do about exceptions within the wizard?
     	}
