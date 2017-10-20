@@ -1149,12 +1149,14 @@ public class HeapFeeder extends ReferenceFeeder {
 		CvPipeline pipeline = null;
 		if(useUpsideUpPipelineFrom.isEmpty()) {
 			pipeline = upsideUpPipeline;
+			Logger.info(getName() + ": use own pipeline for upside up");
 		}else {
 			HeapFeeder otherFeeder = (HeapFeeder) getMachine().getFeederByName(useUpsideUpPipelineFrom);
 			if(otherFeeder == null) {
 				throw new Exception("Error: referred Feeder for Upside Up cannot be accessed");
 			}else {
 				pipeline = otherFeeder.upsideUpPipeline;
+				Logger.info(getName() + ": use referred pipeline for upside up from " + useUpsideUpPipelineFrom);
 			}
 		}
 		
@@ -1180,12 +1182,14 @@ public class HeapFeeder extends ReferenceFeeder {
 		CvPipeline pipeline = null;
 		if(useUpsideDownPipelineFrom.isEmpty()) {
 			pipeline = upsideDownPipeline;
+			Logger.info(getName() + ": use own pipeline for upside down");
 		}else {
 			HeapFeeder otherFeeder = (HeapFeeder) getMachine().getFeederByName(useUpsideDownPipelineFrom);
 			if(otherFeeder == null) {
 				throw new Exception("Error: referred Feeder for Upside Up cannot be accessed");
 			}else {
 				pipeline = otherFeeder.upsideDownPipeline;
+				Logger.info(getName() + ": use referred pipeline for upside down from " + useUpsideDownPipelineFrom);
 			}
 		}
 		
@@ -1214,14 +1218,16 @@ public class HeapFeeder extends ReferenceFeeder {
 		camera.moveTo(dropBoxTopLocation());
 		
 		CvPipeline pipeline = null;
-		if(useUpsideUpPipelineFrom.isEmpty()) {
+		if(useAnythingElsePipelineFrom.isEmpty()) {
 			pipeline = anythingElsePipeline;
+			Logger.info(getName() + ": use own pipeline for anything else");
 		}else {
 			HeapFeeder otherFeeder = (HeapFeeder) getMachine().getFeederByName(useAnythingElsePipelineFrom);
 			if(otherFeeder == null) {
 				throw new Exception("Error: referred Feeder for Anything Else cannot be accessed");
 			}else {
 				pipeline = otherFeeder.anythingElsePipeline;
+				Logger.info(getName() + ": use referred pipeline for anything else from " + useAnythingElsePipelineFrom);
 			}
 		}
 		
