@@ -591,6 +591,8 @@ public class HeapFeeder extends ReferenceFeeder {
 			nozzle.moveTo(location);
 			nozzle.moveTo(location.add(new Location(LengthUnit.Millimeters, dX, 0, 0, 0)));
 		}
+		
+		int counter = 0;
     	do {
     		checkForCleanNozzleTip(nozzle);
 
@@ -640,6 +642,10 @@ public class HeapFeeder extends ReferenceFeeder {
     				nozzle.moveTo(location.add(new Location(LengthUnit.Millimeters, dX, 0, 0, 0)));
 //    			}
     			
+    		}
+    		counter++;
+    		if(counter >= 10) { // TODO 4: constants
+    			throw new Exception("Gave up on cleanup! Please check the DropBox!");
     		}
     	} while(currentAnythingElseCountInDropBox != 0);
     }
@@ -707,10 +713,10 @@ public class HeapFeeder extends ReferenceFeeder {
     	double saveZ = nozzle.getLocation().getZ();
     	
     	updateHeapToExitWayPoints();
-    	int N = heapToExitWayPoints.size();
+    	int count = heapToExitWayPoints.size();
     	
-    	nozzle.moveTo(heapToExitWayPoints.get(N-1).derive(null, null, saveZ, null));
-    	for(int i=N-1; i>=0; i--) {
+    	nozzle.moveTo(heapToExitWayPoints.get(count-1).derive(null, null, saveZ, null));
+    	for(int i=count-1; i>=0; i--) {
     		nozzle.moveTo(heapToExitWayPoints.get(i));
     	}
 	}
