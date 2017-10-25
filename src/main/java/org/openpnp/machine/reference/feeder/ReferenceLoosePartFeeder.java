@@ -67,44 +67,39 @@ public class ReferenceLoosePartFeeder extends ReferenceFeeder {
     }
 
     private Location getPickLocation(Camera camera, Nozzle nozzle) throws Exception {
-        // Process the pipeline to extract RotatedRect results
-        pipeline.setProperty("camera", camera);
-        pipeline.setProperty("nozzle", nozzle);
-        pipeline.setProperty("feeder", this);
-        pipeline.process();
-        // Grab the results
-        List<RotatedRect> results = (List<RotatedRect>) pipeline.getResult(VisionUtils.PIPELINE_RESULTS_NAME).model;
-        if (results.isEmpty()) {
-            throw new Exception("Feeder " + getName() + ": No parts found.");
-        }
-        // Find the closest result
-        results.sort((a, b) -> {
-            Double da = VisionUtils.getPixelLocation(camera, a.center.x, a.center.y)
-                    .getLinearDistanceTo(camera.getLocation());
-            Double db = VisionUtils.getPixelLocation(camera, b.center.x, b.center.y)
-                    .getLinearDistanceTo(camera.getLocation());
-            return da.compareTo(db);
-        });
-        RotatedRect result = results.get(0);
-        Location location = VisionUtils.getPixelLocation(camera, result.center.x, result.center.y);
-        // Get the result's Location
-        // Update the location with the result's rotation
-    	double angleCorrection=0;
-    	if(result.size.width < result.size.height) {
-    		angleCorrection = 90;
-    	}
+        try (CvPipeline pipeline = getPipeline()) {
+            // Process the pipeline to extract RotatedRect results
+            pipeline.setProperty("camera", camera);
+            pipeline.setProperty("nozzle", nozzle);
+            pipeline.setProperty("feeder", this);
+            pipeline.process();
+            // Grab the results
+            List<RotatedRect> results = (List<RotatedRect>) pipeline.getResult(VisionUtils.PIPELINE_RESULTS_NAME).model;
+            if (results.isEmpty()) {
+                throw new Exception("Feeder " + getName() + ": No parts found.");
+            }
+            // Find the closest result
+            results.sort((a, b) -> {
+                Double da = VisionUtils.getPixelLocation(camera, a.center.x, a.center.y)
+                        .getLinearDistanceTo(camera.getLocation());
+                Double db = VisionUtils.getPixelLocation(camera, b.center.x, b.center.y)
+                        .getLinearDistanceTo(camera.getLocation());
+                return da.compareTo(db);
+            });
+            RotatedRect result = results.get(0);
+            Location location = VisionUtils.getPixelLocation(camera, result.center.x, result.center.y);
+            // Get the result's Location
+            // Update the location with the result's rotation
+        	double angleCorrection=0;
+        	if(result.size.width < result.size.height) {
+        		angleCorrection = 90;
+        	}
 
-        location = location.derive(null, null, null, -(result.angle+angleCorrection + location.getRotation()));
-        // Update the location with the correct Z, which is the configured Location's Z
-        // plus the part height.
-        location =
-                location.derive(null, null,
-                        this.location.convertToUnits(location.getUnits()).getZ()
-                                + part.getHeight().convertToUnits(location.getUnits()).getValue(),
-                        null);
-        MainFrame.get().getCameraViews().getCameraView(camera)
-                .showFilteredImage(OpenCvUtils.toBufferedImage(pipeline.getWorkingImage()), 250);
-        return location;
+            location = location.derive(null, null, null, -(result.angle+angleCorrection + location.getRotation()));
+            MainFrame.get().getCameraViews().getCameraView(camera)
+                    .showFilteredImage(OpenCvUtils.toBufferedImage(pipeline.getWorkingImage()), 250);
+            return location;
+        }
     }
 
     public CvPipeline getPipeline() {

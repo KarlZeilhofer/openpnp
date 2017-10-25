@@ -1,6 +1,28 @@
 This file lists major or notable changes to OpenPnP in chronological order. This is not
 a complete change list, only those that may directly interest or affect users.
 
+# 2017-10-24
+
+* CvPipeline Memory Usage Improvements
+
+	CvPipeline now implements AutoClosable and all of the code that uses it has been updated to
+	release after use. This should greatly improve memory usage on large jobs with many parts.
+	
+* ReferenceBottomVision Improved Error Messages
+
+	ReferenceBottomVision will now throw specific error messages for common pipeline setup errors
+	such as an improperly named result stage or an invalid result type.
+	 
+# 2017-10-21
+
+* GcodeDriver Axis Pre Move Command Coordinate Variable
+
+	Pre Move Command in GcodeDriver Axes now has a Coordinate variable which can be used to reset
+	an axis' position before moving it. This can be used in controller firmwares that do not
+	support individual variables for multiple axes. In particular, this makes it possible to
+	use Marlin with multiple rotation axes by using a Pre Move Command like
+	`T0G92E{Coordinate:%.4f}`
+	
 # 2017-10-18
 
 * Vision Usability Improvements
@@ -9,7 +31,7 @@ a complete change list, only those that may directly interest or affect users.
 	the vision pipeline system.
 	
 	* ReferenceBottomVision now looks for it's results in a stage named "results", like the
-	other primary vision operations.
+	other primary vision operations. It also falls back to "result" for backwards compatibility.
 	* ReferenceBottomVision now has improved error messages when a result is not found, or when
 	the result in not in the correct format. This should help users as they experiment with
 	new pipelines.

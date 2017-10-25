@@ -521,7 +521,9 @@ public class GcodeDriver extends AbstractSerialPortDriver implements Runnable {
                 command = substituteVariable(command, "X", x + nonSquarenessFactor * y);
                 command = substituteVariable(command, "BacklashOffsetX", x + backlashOffsetX + nonSquarenessFactor * y); // Backlash Compensation
                 if (xAxis.getPreMoveCommand() != null) {
-                    sendGcode(xAxis.getPreMoveCommand());
+                    String preMoveCommand = xAxis.getPreMoveCommand();
+                    preMoveCommand = substituteVariable(preMoveCommand, "Coordinate", xAxis.getCoordinate());
+                    sendGcode(preMoveCommand);
                 }
                 xAxis.setCoordinate(x);
             }
@@ -534,7 +536,9 @@ public class GcodeDriver extends AbstractSerialPortDriver implements Runnable {
                 command = substituteVariable(command, "Y", y);
                 command = substituteVariable(command, "BacklashOffsetY", y + backlashOffsetY); // Backlash Compensation
                 if (yAxis.getPreMoveCommand() != null) {
-                    sendGcode(yAxis.getPreMoveCommand());
+                    String preMoveCommand = yAxis.getPreMoveCommand();
+                    preMoveCommand = substituteVariable(preMoveCommand, "Coordinate", yAxis.getCoordinate());
+                    sendGcode(preMoveCommand);
                 }
             }
             else {
@@ -545,7 +549,9 @@ public class GcodeDriver extends AbstractSerialPortDriver implements Runnable {
             if (includeZ) {
                 command = substituteVariable(command, "Z", z);
                 if (zAxis.getPreMoveCommand() != null) {
-                    sendGcode(zAxis.getPreMoveCommand());
+                    String preMoveCommand = zAxis.getPreMoveCommand();
+                    preMoveCommand = substituteVariable(preMoveCommand, "Coordinate", zAxis.getCoordinate());
+                    sendGcode(preMoveCommand);
                 }
             }
             else {
@@ -555,7 +561,9 @@ public class GcodeDriver extends AbstractSerialPortDriver implements Runnable {
             if (includeRotation) {
                 command = substituteVariable(command, "Rotation", rotation);
                 if (rotationAxis.getPreMoveCommand() != null) {
-                    sendGcode(rotationAxis.getPreMoveCommand());
+                    String preMoveCommand = rotationAxis.getPreMoveCommand();
+                    preMoveCommand = substituteVariable(preMoveCommand, "Coordinate", rotationAxis.getCoordinate());
+                    sendGcode(preMoveCommand);
                 }
             }
             else {
@@ -1102,7 +1110,7 @@ public class GcodeDriver extends AbstractSerialPortDriver implements Runnable {
         @Element(required = false)
         private AxisTransform transform;
 
-        @Element(required = false)
+        @Element(required = false, data = true)
         private String preMoveCommand;
 
         /**
