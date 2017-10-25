@@ -582,7 +582,7 @@ public class GcodeDriver extends AbstractSerialPortDriver implements Runnable {
 
             // Only give a command when move is necessary
             if (includeX || includeY || includeZ || includeRotation) {
-
+		responseQueue.clear();
                 List<String> responses = sendGcode(command);
 
                 /*
@@ -599,7 +599,7 @@ public class GcodeDriver extends AbstractSerialPortDriver implements Runnable {
                         long t = System.currentTimeMillis();
                         boolean done = false;
                         while (!done && System.currentTimeMillis() - t < timeoutMilliseconds) {
-                            done = containsMatch(sendCommand(null, 250), moveToCompleteRegex);
+                            done = containsMatch(sendCommand(null, 10), moveToCompleteRegex);
                         }
                         if (!done) {
                             throw new Exception("Timed out waiting for move to complete.");
