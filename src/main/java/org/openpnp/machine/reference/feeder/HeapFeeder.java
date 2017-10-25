@@ -33,14 +33,18 @@ import org.openpnp.gui.support.Wizard;
 import org.openpnp.machine.reference.ReferenceActuator;
 import org.openpnp.machine.reference.ReferenceDriver;
 import org.openpnp.machine.reference.ReferenceFeeder;
+import org.openpnp.machine.reference.ReferenceHeadMountable;
 import org.openpnp.machine.reference.ReferenceMachine;
 import org.openpnp.machine.reference.ReferenceNozzleTip;
+import org.openpnp.machine.reference.driver.GcodeDriver;
 import org.openpnp.machine.reference.feeder.wizards.HeapFeederConfigurationWizard;
 import org.openpnp.model.Configuration;
 import org.openpnp.model.Length;
 import org.openpnp.model.LengthUnit;
 import org.openpnp.model.Location;
 import org.openpnp.spi.Camera;
+import org.openpnp.spi.HeadMountable;
+import org.openpnp.spi.Machine;
 import org.openpnp.spi.Nozzle;
 import org.openpnp.spi.PropertySheetHolder;
 import org.openpnp.util.MovableUtils;
@@ -623,25 +627,13 @@ public class HeapFeeder extends ReferenceFeeder {
     			transportToBox(nozzle);
     			valveOff(nozzle);
     			
-    			// spend some time with forces on the part, so it easier drops down. 
-//    			nozzle.moveTo(location);
-//    			nozzle.moveToSafeZ();
-//    			nozzle.moveTo(location);
-//    			nozzle.moveToSafeZ();
-//    			nozzle.moveTo(location);
-
-//    			if(checkForCleanNozzleTip(nozzle, false) == false) {
-//        			valveOff(nozzle);
-
-    				// slop off
-    				double dX = boxTrayInnerSizeX.getValue()/2 + 2; // default to right exit
-    				if(boxColumn() == 0) { // left exit
-    					dX *= -1; 
-    				}
-        			nozzle.moveTo(location);
-    				nozzle.moveTo(location.add(new Location(LengthUnit.Millimeters, dX, 0, 0, 0)));
-//    			}
-    			
+    			// slip off
+    			double dX = boxTrayInnerSizeX.getValue()/2 + 2; // default to right exit
+    			if(boxColumn() == 0) { // left exit
+    				dX *= -1; 
+    			}
+    			nozzle.moveTo(location);
+    			nozzle.moveTo(location.add(new Location(LengthUnit.Millimeters, dX, 0, 0, 0)));
     		}
     		counter++;
     		if(counter >= 10) { // TODO 4: constants
@@ -788,31 +780,6 @@ public class HeapFeeder extends ReferenceFeeder {
     	
     	slipOffInDropBox(nozzle);
     	return; 
-    	
-//    	Location nozLoc;
-//		double dX,dY,dZ;
-//		double saveZ = 0; // TODO 4: saveZ
-//		
-//		// TODO 3: strip off parts instead of a simple drop --> much more reliable
-//		
-//		// * move to final dropbox position
-//		nozzle.moveToSafeZ();  
-//		nozLoc = dropBoxTopLocation().derive(null, null, saveZ, null); // get drop box location at saveZ
-//		dX=0; 
-//		dY=0;
-//		dZ=0;
-//		nozLoc = nozLoc.add(new Location(LengthUnit.Millimeters, dX,dY,dZ,0));
-//		nozzle.moveTo(nozLoc); // move above drop location at saveZ
-//		
-//		Double x=null; 
-//		Double y=null;
-//		Double z = dropBoxTopLocation().getZ();
-//		nozLoc = nozLoc.derive(x, y, z, null);
-//		nozzle.moveTo(nozLoc); // go down to drop height. 
-//		
-//
-//		// * drop the part(s)
-//		valveOff(nozzle);
     }
     
     private void dummyMove(Nozzle nozzle) throws Exception {
@@ -1528,4 +1495,27 @@ public class HeapFeeder extends ReferenceFeeder {
     		// TODO 4: what to do about exceptions within the wizard?
     	}
     }
+    
+    // skips the backlash compensation
+    // TODO 4: we assume millimeters here
+    // TODO 4: only GcodeDriver is supported
+    private void directMoveTo(ReferenceHeadMountable hm, Location location) throws Exception{
+    	ReferenceDriver driver =  getMachine().getDriver();
+    	Location lHead = location.subtract(hm.getHeadOffsets()).convertToUnits(LengthUnit.Millimeters);
+
+    	if(driver instanceof GcodeDriver) {
+    		GcodeDriver d = (GcodeDriver) driver;
+
+    		d.sendCommand(String.format("G1X%fY%fZ%f F%f",lHead.getX(),lHead.getY(), lHead.getZ(), d.getMaxFeedRate()*getMachine().getSpeed())
+    				, d.getTimeoutMilliseconds());
+    	} else {
+    		hm.moveTo(location);
+    	}
+    }
+    
+    // wrapper function, using backlash compensation, if configured
+    private void preciseMoveTo(ReferenceHeadMountable hm, Location location) throws Exception{
+    	hm.moveTo(location);
+    }
+
 }
