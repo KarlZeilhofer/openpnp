@@ -547,4 +547,11 @@ public class OpenBuildsDriver extends AbstractSerialPortDriver implements Runnab
     private void led(boolean on) throws Exception {
         sendCommand(on ? "M810" : "M811");
     }
+
+	@Override
+	public void moveTo(ReferenceHeadMountable hm, Location location, double speed, boolean skipBacklashCompensation)
+			throws Exception {
+		// TODO Auto-generated method stub
+		
+	}
 }

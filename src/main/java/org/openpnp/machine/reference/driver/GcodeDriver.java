@@ -432,9 +432,11 @@ public class GcodeDriver extends AbstractSerialPortDriver implements Runnable {
         return location;
     }
 
-    @Override
-    public void moveTo(ReferenceHeadMountable hm, Location location, double speed)
-            throws Exception {
+    
+	@Override
+	public void moveTo(ReferenceHeadMountable hm, Location location, double speed, boolean skipBacklashCompensation)
+			throws Exception {
+
         // keep copy for calling subdrivers as to not add offset on offset
         Location locationOriginal = location;
 
@@ -519,7 +521,11 @@ public class GcodeDriver extends AbstractSerialPortDriver implements Runnable {
             
             if (includeX) {
                 command = substituteVariable(command, "X", x + nonSquarenessFactor * y);
-                command = substituteVariable(command, "BacklashOffsetX", x + backlashOffsetX + nonSquarenessFactor * y); // Backlash Compensation
+                if(skipBacklashCompensation) {
+                	command = substituteVariable(command, "BacklashOffsetX", x + 0.01 + nonSquarenessFactor * y); // Backlash Compensation
+                }else {
+                	command = substituteVariable(command, "BacklashOffsetX", x + backlashOffsetX + nonSquarenessFactor * y); // Backlash Compensation
+                }
                 if (xAxis.getPreMoveCommand() != null) {
                     String preMoveCommand = xAxis.getPreMoveCommand();
                     preMoveCommand = substituteVariable(preMoveCommand, "Coordinate", xAxis.getCoordinate());
@@ -534,7 +540,11 @@ public class GcodeDriver extends AbstractSerialPortDriver implements Runnable {
 
             if (includeY) {
                 command = substituteVariable(command, "Y", y);
-                command = substituteVariable(command, "BacklashOffsetY", y + backlashOffsetY); // Backlash Compensation
+                if(skipBacklashCompensation) {
+                	command = substituteVariable(command, "BacklashOffsetY", y + 0.01); // Backlash Compensation
+                }else {
+                	command = substituteVariable(command, "BacklashOffsetY", y + backlashOffsetY); // Backlash Compensation
+                }
                 if (yAxis.getPreMoveCommand() != null) {
                     String preMoveCommand = yAxis.getPreMoveCommand();
                     preMoveCommand = substituteVariable(preMoveCommand, "Coordinate", yAxis.getCoordinate());
@@ -620,6 +630,14 @@ public class GcodeDriver extends AbstractSerialPortDriver implements Runnable {
             driver.moveTo(hm, locationOriginal, speed);
         }
 
+		
+	}
+
+    @Override
+    public void moveTo(ReferenceHeadMountable hm, Location location, double speed)
+            throws Exception {
+    	
+    	moveTo(hm, location, speed, false);
     }
 
     private boolean containsMatch(List<String> responses, String regex) {
@@ -1276,4 +1294,5 @@ public class GcodeDriver extends AbstractSerialPortDriver implements Runnable {
             return raw;
         }
     }
+
 }

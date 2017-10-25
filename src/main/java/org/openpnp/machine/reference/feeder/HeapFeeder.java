@@ -31,10 +31,12 @@ import org.openpnp.gui.MainFrame;
 import org.openpnp.gui.support.PropertySheetWizardAdapter;
 import org.openpnp.gui.support.Wizard;
 import org.openpnp.machine.reference.ReferenceActuator;
+import org.openpnp.machine.reference.ReferenceCamera;
 import org.openpnp.machine.reference.ReferenceDriver;
 import org.openpnp.machine.reference.ReferenceFeeder;
 import org.openpnp.machine.reference.ReferenceHeadMountable;
 import org.openpnp.machine.reference.ReferenceMachine;
+import org.openpnp.machine.reference.ReferenceNozzle;
 import org.openpnp.machine.reference.ReferenceNozzleTip;
 import org.openpnp.machine.reference.driver.GcodeDriver;
 import org.openpnp.machine.reference.feeder.wizards.HeapFeederConfigurationWizard;
@@ -540,10 +542,10 @@ public class HeapFeeder extends ReferenceFeeder {
     
 	private void slipOffInDropBox(Nozzle nozzle) throws Exception{
 		Logger.info(getName() + ": Slip off in DropBox");
-		MovableUtils.moveToLocationAtSafeZ(nozzle, dropBoxTopLocation());
+		directMoveToAtSafeZ(nozzle, dropBoxTopLocation());
 
 		valveOff(nozzle);
-		nozzle.moveTo(dropBoxTopLocation().add(
+		directMoveTo(nozzle, dropBoxTopLocation().add(
 				new Location(LengthUnit.Millimeters, -15, 0,0,0))); // TODO 4: constant
 		nozzle.moveToSafeZ();
 	}
@@ -553,7 +555,7 @@ public class HeapFeeder extends ReferenceFeeder {
 		nozzle.moveToSafeZ();
 		double saveZ = nozzle.getLocation().getZ();
 		
-		nozzle.moveTo(chipFlipperPutLocation().derive(null,  null,  saveZ, null));
+		directMoveTo(nozzle, chipFlipperPutLocation().derive(null,  null,  saveZ, null));
 		
 		double h = getPart().getHeight().getValue();
 		if(h < 0.6) {
@@ -561,18 +563,18 @@ public class HeapFeeder extends ReferenceFeeder {
 			// TODO 4: replace constant
 		}
 		
-		nozzle.moveTo(chipFlipperPutLocation().add(
+		directMoveTo(nozzle, chipFlipperPutLocation().add(
 				new Location(LengthUnit.Millimeters, 0,0, h, 0)));
 		
 		valveOff(nozzle);
 		
-		nozzle.moveTo(nozzle.getLocation().add(
+		directMoveTo(nozzle, nozzle.getLocation().add(
 				new Location(LengthUnit.Millimeters, 0, 5, 0, 0)), 0.005); // TODO 4: replace this constant
 		
 		nozzle.moveToSafeZ(); // finished	
 		
 		// move to park position (out of the way of the chip flippers motion volume)
-		nozzle.moveTo(nozzle.getLocation().add(
+		directMoveTo(nozzle, nozzle.getLocation().add(
 				new Location(LengthUnit.Millimeters, 40, 0, 0, 0))); // TODO 4: replace this constant
 	}
 
@@ -592,8 +594,8 @@ public class HeapFeeder extends ReferenceFeeder {
 			if(boxColumn() == 0) { // left exit
 				dX *= -1; 
 			}
-			nozzle.moveTo(location);
-			nozzle.moveTo(location.add(new Location(LengthUnit.Millimeters, dX, 0, 0, 0)));
+			directMoveTo(nozzle, location);
+			directMoveTo(nozzle, location.add(new Location(LengthUnit.Millimeters, dX, 0, 0, 0)));
 		}
 		
 		int counter = 0;
@@ -632,8 +634,8 @@ public class HeapFeeder extends ReferenceFeeder {
     			if(boxColumn() == 0) { // left exit
     				dX *= -1; 
     			}
-    			nozzle.moveTo(location);
-    			nozzle.moveTo(location.add(new Location(LengthUnit.Millimeters, dX, 0, 0, 0)));
+    			directMoveTo(nozzle, location);
+    			directMoveTo(nozzle, location.add(new Location(LengthUnit.Millimeters, dX, 0, 0, 0)));
     		}
     		counter++;
     		if(counter >= 10) { // TODO 4: constants
@@ -652,7 +654,6 @@ public class HeapFeeder extends ReferenceFeeder {
     	pumpOn();
     	valveOn(nozzle);
     	nozzle.moveToSafeZ();
-    	//Thread.sleep(300);
     	
     	final int limit = 500;
     	double p0;
@@ -683,8 +684,8 @@ public class HeapFeeder extends ReferenceFeeder {
 		nozzle.moveToSafeZ();
 		double saveZ = nozzle.getLocation().getZ();
 		
-		nozzle.moveTo(pickLocation.derive(null, null, saveZ, null));
-		nozzle.moveTo(pickLocation);
+		directMoveTo(nozzle, pickLocation.derive(null, null, saveZ, null));
+		directMoveTo(nozzle, pickLocation);
 		
 		valveOn(nozzle);
 		
@@ -696,7 +697,7 @@ public class HeapFeeder extends ReferenceFeeder {
     	nozzle.moveToSafeZ();
     	updateHeapToExitWayPoints();
     	for(Location loc : heapToExitWayPoints) {
-    		nozzle.moveTo(loc);
+    		directMoveTo(nozzle, loc);
     	}
 	}
 	
@@ -707,9 +708,9 @@ public class HeapFeeder extends ReferenceFeeder {
     	updateHeapToExitWayPoints();
     	int count = heapToExitWayPoints.size();
     	
-    	nozzle.moveTo(heapToExitWayPoints.get(count-1).derive(null, null, saveZ, null));
+    	directMoveTo(nozzle, heapToExitWayPoints.get(count-1).derive(null, null, saveZ, null));
     	for(int i=count-1; i>=0; i--) {
-    		nozzle.moveTo(heapToExitWayPoints.get(i));
+    		directMoveTo(nozzle, heapToExitWayPoints.get(i));
     	}
 	}
 
@@ -781,17 +782,11 @@ public class HeapFeeder extends ReferenceFeeder {
     	slipOffInDropBox(nozzle);
     	return; 
     }
-    
+ 
+    // TODO 3: cleanup 
     private void dummyMove(Nozzle nozzle) throws Exception {
-    	// TODO 3: speed: find the essential line of code
     	mostRecentHeapFeederId = getId();
-    	
-    	//MovableUtils.moveToLocationAtSafeZ(nozzle, dropBoxTopLocation());
-    	//Thread.sleep(1000);
-    	
 		valveOff(nozzle);
-		
-		// dummy pick location for testing with a "real" pnp-job
     }
     
     /**
@@ -802,7 +797,7 @@ public class HeapFeeder extends ReferenceFeeder {
      * @return
      * @throws Exception
      */
-    private void pickNewPartFromBox(Nozzle nozzle) throws Exception {
+	private void pickNewPartFromBox(Nozzle nozzle) throws Exception {
         // Turn on the vacuum pump and the valve
     	
     	Logger.info(getName() + ": Picking new Part for Feeder " + getName() + " from Box" + subBoxName);
@@ -810,7 +805,7 @@ public class HeapFeeder extends ReferenceFeeder {
     	pumpOn();
     	valveOn(nozzle);
        	
-    	MovableUtils.moveToLocationAtSafeZ(nozzle, location); // center of our box
+    	directMoveToAtSafeZ(nozzle, location); // center of our box
     	
         // * measure pressure (with no part on nozzle), until it has stabilized
     	//Thread.sleep(300); // TODO 4: obsolete?
@@ -869,7 +864,7 @@ public class HeapFeeder extends ReferenceFeeder {
 				Location dLocation = new Location(LengthUnit.Millimeters, dX, dY, dZ, 0);
 				l = lStart.add(dLocation);
 				
-				nozzle.moveTo(l);
+				directMoveTo(nozzle, l);
 				
 				if(nozzle.getLocation().getZ() < (-42.7+1+getPart().getHeight().getValue())) { // TODO 4: replace constant
 					throw new Exception("Box is empty!");
@@ -888,9 +883,9 @@ public class HeapFeeder extends ReferenceFeeder {
 	        // * move up to save z. 
 			// on low pressure, we go very slow
 			if(p1-p0 < 0.25*pressureDelta && p1 - p0 >= pressureDelta) { // TODO 4: replace constant
-				nozzle.moveTo(location, 0.01); // slow move up
+				directMoveTo(nozzle, location, 0.01); // slow move up
 			}else {
-				nozzle.moveTo(location); // normal fast move up
+				directMoveTo(nozzle, location); // normal fast move up
 			}
 			Thread.sleep(dwellOnZStep); 
 			p1 = pressure(nozzle);
@@ -912,18 +907,11 @@ public class HeapFeeder extends ReferenceFeeder {
     	
 		if(retries > 0 && p1-p0 >= pressureDelta) {
             Logger.trace(getName() + ": Part(s) catched!");
-            
-            // Testing Code:
-            // throw away the parts 14mm to the left of the feeder position. 
-//            nozzle.moveTo(location.add(new Location(LengthUnit.Millimeters, -14, 0, 0, 0)));
-//            valveOff(nozzle);
 		}else {
 			Logger.trace(getName() + ": Could not catch a part from the heap");
 			
 			throw new Exception("Feeder " + getName() + ": Could not catch a part from the heap. Pressure limit not reached.");
 		}
-		
-		pickLocation = null;
     }
     
     private void pumpOn() throws Exception {
@@ -1499,15 +1487,33 @@ public class HeapFeeder extends ReferenceFeeder {
     // skips the backlash compensation
     // TODO 4: we assume millimeters here
     // TODO 4: only GcodeDriver is supported
-    private void directMoveTo(ReferenceHeadMountable hm, Location location) throws Exception{
+    private void directMoveTo(HeadMountable generalHm, Location location) throws Exception{
+    	directMoveTo(generalHm, location, getMachine().getSpeed());
+    }
+    
+    private void directMoveToAtSafeZ(HeadMountable generalHm, Location location) throws Exception{
+    	generalHm.moveToSafeZ();
+    	double safeZ = generalHm.getLocation().getZ();
+    	directMoveTo(generalHm, location.derive(null,  null,  safeZ, null));
+    	directMoveTo(generalHm, location);
+    }
+    
+    private void directMoveTo(HeadMountable generalHm, Location location, double speed) throws Exception{
+    	ReferenceHeadMountable hm = (ReferenceHeadMountable) generalHm;
+    	
     	ReferenceDriver driver =  getMachine().getDriver();
     	Location lHead = location.subtract(hm.getHeadOffsets()).convertToUnits(LengthUnit.Millimeters);
 
     	if(driver instanceof GcodeDriver) {
     		GcodeDriver d = (GcodeDriver) driver;
 
-    		d.sendCommand(String.format("G1X%fY%fZ%f F%f",lHead.getX(),lHead.getY(), lHead.getZ(), d.getMaxFeedRate()*getMachine().getSpeed())
-    				, d.getTimeoutMilliseconds());
+    		// TODO 4: fix this hardcoded axis handling
+    		if(hm instanceof ReferenceCamera) {
+        		d.moveTo(hm, lHead.derive(null,  null,  0.0,  null), speed, true); // TODO 3: fix save-z constant
+    		}else {
+    			d.moveTo(hm, lHead, speed, true);
+    		}
+    		
     	} else {
     		hm.moveTo(location);
     	}

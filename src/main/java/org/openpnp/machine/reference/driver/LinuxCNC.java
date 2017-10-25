@@ -457,4 +457,11 @@ public class LinuxCNC implements ReferenceDriver, Runnable {
             Location endLocation, long dispenseTimeMilliseconds) throws Exception {
 
     }
+
+	@Override
+	public void moveTo(ReferenceHeadMountable hm, Location location, double speed, boolean skipBacklashCompensation)
+			throws Exception {
+		// TODO Auto-generated method stub
+		
+	}
 }

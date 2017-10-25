@@ -325,4 +325,11 @@ public class NullDriver implements ReferenceDriver {
     public void close() throws IOException {
 
     }
+
+	@Override
+	public void moveTo(ReferenceHeadMountable hm, Location location, double speed, boolean skipBacklashCompensation)
+			throws Exception {
+		// TODO Auto-generated method stub
+		
+	}
 }
