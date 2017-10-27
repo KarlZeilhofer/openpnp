@@ -655,7 +655,7 @@ public class HeapFeeder extends ReferenceFeeder {
     	valveOn(nozzle);
     	nozzle.moveToSafeZ();
     	
-    	final int limit = 500;
+    	final int limit = 500; // equals about 5s
     	double p0;
     	int retries=0;
     	while(retries < limit) {

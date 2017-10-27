@@ -582,7 +582,7 @@ public class GcodeDriver extends AbstractSerialPortDriver implements Runnable {
 
             // Only give a command when move is necessary
             if (includeX || includeY || includeZ || includeRotation) {
-		responseQueue.clear();
+            	responseQueue.clear();
                 List<String> responses = sendGcode(command);
 
                 /*
