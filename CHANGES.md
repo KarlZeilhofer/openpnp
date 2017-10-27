@@ -1,6 +1,72 @@
 This file lists major or notable changes to OpenPnP in chronological order. This is not
 a complete change list, only those that may directly interest or affect users.
 
+# 2017-10-26
+
+* Fiducial Locator Retry and Averaging
+
+	With thanks to @mgrl, retry count on the fiducial locator, which was previously fixed at
+	3 is now configurable in Machine Setup -> Vision -> Fiducial Locator.
+	
+	In addition, a new option is added which allows averaging the results from the retries. This
+	helps alleviate some jitter that happens as the results shift with the movement of the
+	camera. 
+
+* ReferenceLoosePartFeeder Improvements
+
+	There is a new default pipeline that performs well for non-polarized, rectangular
+	components such as resistors and capacitors. 
+	
+	It attempts to include the electrodes as well as the bodies to better recognize rectangular
+	parts and it performs landscape orientation on the results so that there is a deterministic
+	orientation for rectangular parts.
+	
+	The camera feedback is now only shown at the end of the process, and for a longer
+	time. This better represents what OpenPnP is "seeing" before it picks the part.
+	
+	The feeder's rotation defined on it's location is now added to the final rotation so that
+	you can set the orientation you want parts picked in.
+	
+* New CvPipeline Stage: OrientRotatedRects
+
+	The new stage ensures the orientation of RotatedRects is set to either landscape or
+	portrait. This is used in the above pipeline. 
+	
+	In addition, you can set a flag to negate the angle of the RotatedRects. This is 
+	primarily used when converting from the output of MinAreaRect to what OpenPnP expects for 
+	Locations.
+
+
+# 2017-10-25
+
+* CvPipeline Editor Model Info
+
+	The pipeline editor will now show some information about any identified models it finds
+	as you move the mouse around the result window. 
+	
+	For instance, if the result you are viewing
+	includes a List<RotatedRect> and you mouse over the center of one of them in the image view,
+	you will see the description of that RotatedRect in the status field. 
+	
+	This is very helpful for learning more about what is happening in your pipelines and makes it
+	easy to debug model data.
+	
+	This feature currently works for RotatedRect, Circle, and KeyPoint models, and Lists of the
+	same.
+	
+	This video shows the feature in action: https://www.youtube.com/watch?v=sHuUPtJNIXw
+	
+* New CvPipeline Stage: Add
+
+	A new stage has been added for use in pipelines. The stage is called Add and it simply
+	outputs the sum of two previous images. This is used in a new Loose Part Feeder pipeline
+	that will be released soon.
+	
+* CvPipeline Standalone Editor Pipeline Restore
+
+	The  CvPipeline Standalone Editor will now save and restore the last pipeline you were
+	working on, similar to how the last directory you were working on is saved.
+
 # 2017-10-24
 
 * CvPipeline Memory Usage Improvements
@@ -12,15 +78,6 @@ a complete change list, only those that may directly interest or affect users.
 
 	ReferenceBottomVision will now throw specific error messages for common pipeline setup errors
 	such as an improperly named result stage or an invalid result type.
-	
-* ReferenceLoosePartFeeder Improvements
-
-	ReferenceLoosePartFeeder will now try to pick parts in a fixed landscape orientation. This makes
-	it perform much better for parts like capacitors and resistors as they should always be picked
-	in a specific orientation.
-	
-	Additionally, the camera feedback is now only shown at the end of the process, and for a longer
-	time. This better represents what OpenPnP is "seeing" before it picks a part.
 	 
 # 2017-10-21
 
