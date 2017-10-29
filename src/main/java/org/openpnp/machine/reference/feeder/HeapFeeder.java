@@ -456,10 +456,7 @@ public class HeapFeeder extends ReferenceFeeder {
 				transportToExit(nozzle);
 				moveToDropLocationAndDrop(nozzle);
 			}else {
-				dummyMove(nozzle);
-				 // TODO 2: speed improvement:
-					// WARNING: if this dumyMove() is skipped, we don't get a new location from 
-					// getNextUpsideUpLocationInDropbox() below - the reason is unclear!
+				dummyMove(nozzle); // TODO cleanup dummy move
 			}
 
 			Location lNormal=null;
@@ -829,6 +826,7 @@ public class HeapFeeder extends ReferenceFeeder {
 			
 	
 			p1 = p0;
+			int emptyBoxAlarmCounter = 0;
 			while(p1 - p0 < pressureDelta && dZ > maxZTravel.getValue() && isZSwitchActivated(nozzle) == false) {
 				Location l = location;
 		    	
@@ -866,8 +864,13 @@ public class HeapFeeder extends ReferenceFeeder {
 				
 				directMoveTo(nozzle, l);
 				
-				if(nozzle.getLocation().getZ() < (-42.7+1+getPart().getHeight().getValue())) { // TODO 4: replace constant
-					throw new Exception("Box is empty!");
+				if(nozzle.getLocation().getZ() < (-42.7-1+1+getPart().getHeight().getValue())) { // TODO 4: replace constant
+					nozzle.moveToSafeZ();
+					emptyBoxAlarmCounter++;
+					
+					if(emptyBoxAlarmCounter >=5) {
+						throw new Exception("Box is empty!");
+					}
 				}
 				
 				
