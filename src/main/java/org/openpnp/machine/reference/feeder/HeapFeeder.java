@@ -189,6 +189,9 @@ public class HeapFeeder extends ReferenceFeeder {
     private String subBoxName = "A1"; 
 	@Attribute(required = false)
     private int boxTrayId = 1; 
+	
+	@Attribute(required = false)
+    private int zSwitchActivationCounter = 0;  // used for statistics
     
 	// @ElementList(required = false) // TODO 4: fix bug with Megabytes of repeated entries in machine.xml
     private static List<Location> globalBoxTrayLocations = new ArrayList<Location>(); // TODO 5: provide GUI
@@ -813,6 +816,7 @@ public class HeapFeeder extends ReferenceFeeder {
     	double p0,p1;
     	double dZ = 0;
     	int stirDir=0; // 0 = (r,r), 1=(-r,r), 2=(-r,-r), 3=(r,-r)
+    	boolean zSwitchWasActivated = false;
 		
     	int retries = 5+1;
     	do {
@@ -827,7 +831,10 @@ public class HeapFeeder extends ReferenceFeeder {
 	
 			p1 = p0;
 			int emptyBoxAlarmCounter = 0;
-			while(p1 - p0 < pressureDelta && dZ > maxZTravel.getValue() && isZSwitchActivated(nozzle) == false) {
+			
+			zSwitchWasActivated = false;
+			while(p1 - p0 < pressureDelta && dZ > maxZTravel.getValue() && 
+					zSwitchWasActivated == false) {
 				Location l = location;
 		    	
 				// TODO 2: handle collision with Box's floor
@@ -881,8 +888,16 @@ public class HeapFeeder extends ReferenceFeeder {
 				if(stirDir == 4) {
 					dZ += zStepOnPickup.getValue();
 				}
+				
+				if(isZSwitchActivated(nozzle)) {
+					zSwitchWasActivated = true;
+					zSwitchActivationCounter++;
+					Logger.warn(getName() + ": Z-Switch was activated (counter = " + 
+							Integer.toString(zSwitchActivationCounter) + " )");
+				}
 	    	}
-	    	
+			
+   	
 	        // * move up to save z. 
 			// on low pressure, we go very slow
 			if(p1-p0 < 0.25*pressureDelta && p1 - p0 >= pressureDelta) { // TODO 4: replace constant
@@ -894,6 +909,10 @@ public class HeapFeeder extends ReferenceFeeder {
 			p1 = pressure(nozzle);
 			
 			retries--;
+			
+        	if(zSwitchWasActivated) {
+        		dZ += 3;
+        	}
             setLastCatchZDepth(lastCatchZDepth.add(dZ));
     	}while(p1-p0 < pressureDelta && retries > 0);
     	
