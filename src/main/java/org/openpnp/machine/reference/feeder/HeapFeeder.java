@@ -45,10 +45,12 @@ import org.openpnp.model.Length;
 import org.openpnp.model.LengthUnit;
 import org.openpnp.model.Location;
 import org.openpnp.spi.Camera;
+import org.openpnp.spi.Feeder;
 import org.openpnp.spi.HeadMountable;
 import org.openpnp.spi.Machine;
 import org.openpnp.spi.Nozzle;
 import org.openpnp.spi.PropertySheetHolder;
+import org.openpnp.spi.base.AbstractFeeder;
 import org.openpnp.util.MovableUtils;
 import org.openpnp.util.OpenCvUtils;
 import org.openpnp.util.VisionUtils;
@@ -1014,11 +1016,28 @@ public class HeapFeeder extends ReferenceFeeder {
 	}
 	
 	public void setDefaultLocation(int boxTrayId, String subBoxName) {
+		List<Feeder> feeders = getMachine().getFeeders();
+		List<HeapFeeder> otherSubBoxFeeders = new ArrayList<HeapFeeder>();
+		
 		this.boxTrayId = boxTrayId;
 		this.subBoxName = subBoxName;
 		
-		// TODO 4: add button for update globalBoxTrayLocation.
-
+		for (Feeder f : feeders) {
+			// TODO 3: we should  access the feeders members, instead of relaying on a naming-scheme!
+			if(f.getName().startsWith("BT" + Integer.toString(boxTrayId) + "-")) {
+				otherSubBoxFeeders.add((HeapFeeder)f);
+			}
+		}
+		// TODO 1: Schätzen der neuen Position
+		/*
+		 * 1) Rotation phi berechnen durch Mittelung der Winkel
+		 * 2) Alle bekannten Punkte drehen um -phi
+		 * 3) Berechnung des Ursprungs durch Mittelung der bekannten Punkte
+		 *    (und deren bekannter theoretischer Offset)
+		 * 4) Neuen Punkt berechnen und wieder mit phi rotieren. 
+		 */
+		
+		
 		// TODO 2: take rotaion of globalBoxTrayLocation into account!
 		double dX = boxTrayWallThickness.getValue() + 
 				boxTrayInnerSizeX.getValue()/2 + 
