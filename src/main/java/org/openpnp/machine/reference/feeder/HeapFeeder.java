@@ -411,6 +411,7 @@ public class HeapFeeder extends ReferenceFeeder {
 	    	globalBoxTrayLocations.add(2, new Location(LengthUnit.Millimeters, 266+2*34,168,-7,0));
 	    	globalBoxTrayLocations.add(3, new Location(LengthUnit.Millimeters, 266+1*34,168,-7,0));
 	    	globalBoxTrayLocations.add(4, new Location(LengthUnit.Millimeters, 266+0*34,168,-7,0));
+	    	globalBoxTrayLocations.add(5, new Location(LengthUnit.Millimeters, 266-1*34,168,-7,0));
     	}
     	
     	Logger.trace("@Commit: this.name = " + name);   	
@@ -657,7 +658,7 @@ public class HeapFeeder extends ReferenceFeeder {
     	valveOn(nozzle);
     	nozzle.moveToSafeZ();
     	
-    	final int limit = 500; // equals about 5s
+    	final int limit = 100; // equals about 5s ??
     	double p0;
     	int retries=0;
     	while(retries < limit) {
@@ -1024,7 +1025,8 @@ public class HeapFeeder extends ReferenceFeeder {
 		
 		for (Feeder f : feeders) {
 			// TODO 3: we should  access the feeders members, instead of relaying on a naming-scheme!
-			if(f.getName().startsWith("BT" + Integer.toString(boxTrayId) + "-")) {
+			if(f.getName().startsWith("BT" + Integer.toString(boxTrayId) + "-") || 
+					f.getName().startsWith("ref-BT" + Integer.toString(boxTrayId) + "-")) {
 				otherSubBoxFeeders.add((HeapFeeder)f);
 			}
 		}
