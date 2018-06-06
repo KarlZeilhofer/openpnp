@@ -457,7 +457,10 @@ public class HeapFeeder extends ReferenceFeeder {
 		do {
 			checkForCleanNozzleTip(nozzle);
 			
-			if(currentUpsideUpPartsInDropBox <= 0 && currentUpsideDownPartsInDropBox <= 0) {
+			// pick new part only, if the box is empty
+			if(currentUpsideUpPartsInDropBox <= 0 
+					&& currentUpsideDownPartsInDropBox <= 0 
+					&& currentAnythingElseCountInDropBox <= 0) {
 				pickNewPartFromBox(nozzle);
 				transportToExit(nozzle);
 				moveToDropLocationAndDrop(nozzle);
@@ -467,24 +470,31 @@ public class HeapFeeder extends ReferenceFeeder {
 
 			Location lNormal=null;
 			Location lFlipped=null;
+			Location lAny=null;
 			Location lPick=null;
 			//int recentUpsideUpPartsInDropBox = currentUpsideUpPartsInDropBox;
 			
 			lNormal = getNextUpsideUpLocationInDropbox(camera, nozzle);
-			if(upsideDownPipelineEnabledFlag == true 
-					&& currentUpsideUpPartsInDropBox <= 2) { // bother the upside down pipeline only if it is the 
+			if(currentUpsideUpPartsInDropBox <= 2) { // bother the upside down pipeline only if it is the 
 						// last normal part we are taking now, or we didn't find an upside up part any more. 
-				
-				// call this also to update the number of flipped chips. 
-				// so we can avoid a fetch in the next cycle, if we have flipped chips. 
-				lFlipped = getNextUpsideDownLocationInDropbox(camera, nozzle); 
+				if(upsideDownPipelineEnabledFlag == true) {
+					// call this also to update the number of flipped chips. 
+					// so we can avoid a fetch in the next cycle, if we have flipped chips. 
+					lFlipped = getNextUpsideDownLocationInDropbox(camera, nozzle); 
+				}
+				// call this also to update the number of anything-else-chips. 
+				// so we can avoid a fetch in the next cycle, if we still have some chips. 
+				lAny = getNextAnythingElseLocationInDropbox(camera, nozzle);
 			}
+			
 			
 
 			if (lNormal != null) {
 				lPick = lNormal;
 			}else if(lFlipped != null) {
 				lPick = lFlipped;
+			}else if(lAny != null) {
+				lPick = lAny;
 			}
 			
 			if(lPick != null) {
@@ -516,7 +526,7 @@ public class HeapFeeder extends ReferenceFeeder {
 				currentUpsideUpPartsInDropBox--;
 			}else if(lFlipped != null) {
 				// then we have to do the flipping before
-				Logger.info(getName() + ": Flip part from DropBox, retries = " + Double.toString(retries));
+				Logger.info(getName() + ": Flip upside-down-part from DropBox, retries = " + Double.toString(retries));
 				
 				pickPart(nozzle, lPick);
 				if(useChipFlipper) { // TODO 3: optimize this cycle - not very reliable
@@ -529,6 +539,14 @@ public class HeapFeeder extends ReferenceFeeder {
 					slipOffInDropBox(nozzle);
 					retries += 0.5; // try it more often with the DropBoxFlipper
 				}
+			}else if(lAny != null) {
+				// then we have to do the flipping before
+				Logger.info(getName() + ": Flip anything-else-part from DropBox, retries = " + Double.toString(retries));
+				
+				// we have to use the "Dropbox Flipper"
+				pickPart(nozzle, lPick);
+				slipOffInDropBox(nozzle);
+				retries += 0.5; // try it more often with the DropBoxFlipper
 			}
 
 			retries--;
