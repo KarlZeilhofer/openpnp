@@ -497,6 +497,14 @@ public class HeapFeeder extends ReferenceFeeder {
 				lPick = lAny;
 			}
 			
+			// TODO 1: das muss sauber in die maschinen koordinaten kompensation eingerechnet werden!
+			// nichtlinearität des LitePlacers kompensieren:
+			// in unserem Fall würde die Düse zu weit rechts oben ansetzen, deshalb reduzieren wir beide koordinaten (x,y). 
+			if(lPick != null) {
+				lPick = lPick.derive(lPick.getX()-0.07, lPick.getY()-0.29, null, null); // TODO 0: globale variable definieren. 
+			}
+
+			
 			if(lPick != null) {
 				// sanity check: location must be within 7mm radius of the center of the dropbox
 				if(lPick.getLinearDistanceTo(dropBoxTopLocation()) > 7.5) { // TODO 4: set attribute for dropbox radius
@@ -555,9 +563,7 @@ public class HeapFeeder extends ReferenceFeeder {
 		if(retries <= 0) {
 			throw new Exception("HeapFeeder failed to feed a new part after many retries");
 		}
-        
-        
-        
+                
         // TOOD 0: use chip flipper
     }
     
